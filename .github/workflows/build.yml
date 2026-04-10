@@ -27,10 +27,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Get version from autodoor.py
+    - name: Get version from main.py
       id: get_version
       run: |
-        $VERSION = (Select-String -Path "autodoor.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
+        $VERSION = (Select-String -Path "main.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
         Write-Host "Version: $VERSION"
         echo "VERSION=$VERSION" >> $env:GITHUB_OUTPUT
 
@@ -80,7 +80,7 @@ jobs:
 
     - name: Verify build output
       run: |
-        $VERSION = (Select-String -Path "autodoor.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
+        $VERSION = (Select-String -Path "main.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
         $EXE_NAME = "autodoor-behaviortree-$VERSION-normal.exe"
         $DIR_NAME = "autodoor-behaviortree-$VERSION-normal"
         
@@ -105,10 +105,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Get version from autodoor.py
+    - name: Get version from main.py
       id: get_version
       run: |
-        $VERSION = (Select-String -Path "autodoor.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
+        $VERSION = (Select-String -Path "main.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
         Write-Host "Version: $VERSION"
         echo "VERSION=$VERSION" >> $env:GITHUB_OUTPUT
 
@@ -160,7 +160,7 @@ jobs:
 
     - name: Verify build output
       run: |
-        $VERSION = (Select-String -Path "autodoor.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
+        $VERSION = (Select-String -Path "main.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
         $EXE_NAME = "autodoor-behaviortree-$VERSION-game.exe"
         $DIR_NAME = "autodoor-behaviortree-$VERSION-game"
         
@@ -202,10 +202,10 @@ jobs:
     - name: Install zip command
       run: sudo apt-get update && sudo apt-get install -y zip
 
-    - name: Get current version from autodoor.py
+    - name: Get current version from main.py
       id: get_version
       run: |
-        VERSION=$(grep -oP 'VERSION\s*=\s*"\K[0-9]+\.[0-9]+\.[0-9]+' autodoor.py | tail -n 1 || echo "")
+        VERSION=$(grep -oP 'VERSION\s*=\s*"\K[0-9]+\.[0-9]+\.[0-9]+' main.py | tail -n 1 || echo "")
         
         if [[ -z "$VERSION" ]]; then
           VERSION=$(git tag -l "v*" | sort -V | tail -n 1 | sed 's/^v//' || echo "0.0.0")
