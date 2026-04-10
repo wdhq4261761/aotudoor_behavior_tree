@@ -76,7 +76,7 @@ jobs:
     - name: Build Standard Version with PyInstaller
       env:
         AUTODOOR_USE_DD: '0'
-      run: pyinstaller autodoor.spec --noconfirm
+      run: pyinstaller autodoor_bt.spec --noconfirm
 
     - name: Verify build output
       run: |
@@ -156,7 +156,7 @@ jobs:
     - name: Build DD Version with PyInstaller
       env:
         AUTODOOR_USE_DD: '1'
-      run: pyinstaller autodoor_dd.spec --noconfirm
+      run: pyinstaller autodoor_bt_dd.spec --noconfirm
 
     - name: Verify build output
       run: |
