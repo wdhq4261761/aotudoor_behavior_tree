@@ -1,0 +1,148 @@
+from typing import Any, Callable, Optional
+import time
+
+from .blackboard import Blackboard
+
+
+class ExecutionContext:
+    """执行上下文
+
+    封装行为树执行过程中的运行时依赖，包括黑板系统、
+    截图管理器、输入控制器和OCR管理器等。
+
+    Attributes:
+        blackboard: 黑板系统实例
+        elapsed_time: 已执行时间（秒）
+        tick_count: tick执行次数
+    """
+
+    def __init__(self):
+        self.blackboard = Blackboard()
+        self.elapsed_time: float = 0.0
+        self.tick_count: int = 0
+        self._is_running = True
+        self._is_paused = False
+        self._on_node_status: Optional[Callable] = None
+        self._screenshot_manager = None
+        self._input_controller = None
+        self._ocr_manager = None
+        self._alarm_player = None
+    
+    def check_running(self) -> bool:
+        if self._is_paused:
+            self._wait_if_paused()
+        return self._is_running
+    
+    def _wait_if_paused(self, check_interval: float = 0.1) -> None:
+        while self._is_paused and self._is_running:
+            time.sleep(check_interval)
+
+    @property
+    def is_running(self) -> bool:
+        """是否正在运行"""
+        return self._is_running
+
+    @property
+    def is_paused(self) -> bool:
+        """是否暂停"""
+        return self._is_paused
+
+    def notify_node_status(self, node_id: str, status: str) -> None:
+        """通知节点状态变化
+
+        Args:
+            node_id: 节点ID
+            status: 状态字符串
+        """
+        if self._on_node_status:
+            self._on_node_status(node_id, status)
+
+    def get_screenshot(self, region: tuple = None):
+        """获取屏幕截图
+
+        Args:
+            region: 截图区域 (left, top, right, bottom)
+
+        Returns:
+            PIL.Image 截图对象
+        """
+        if self._screenshot_manager is None:
+            from bt_utils.screenshot import ScreenshotManager
+            self._screenshot_manager = ScreenshotManager()
+
+        if region:
+            return self._screenshot_manager.get_region_screenshot(region)
+        return self._screenshot_manager.get_full_screenshot()
+
+    def execute_key_press(self, key: str, action: str = "press", duration: int = 0) -> None:
+        """执行按键操作
+
+        Args:
+            key: 按键名称
+            action: 动作类型 (press/down/up)
+            duration: 按住时长（毫秒）
+        """
+        if self._input_controller is None:
+            from bt_utils.input_controller import InputController
+            self._input_controller = InputController()
+
+        self._input_controller.key_press(key, action, duration)
+
+    def execute_mouse_click(self, button: str = "left", position: tuple = None,
+                           action: str = "press", duration: int = 0) -> None:
+        """执行鼠标点击
+
+        Args:
+            button: 鼠标按钮 (left/right/middle)
+            position: 点击位置 (x, y)
+            action: 动作类型 (press/down/up)
+            duration: 按住时长（毫秒）
+        """
+        if self._input_controller is None:
+            from bt_utils.input_controller import InputController
+            self._input_controller = InputController()
+
+        self._input_controller.mouse_click(button, position, action, duration)
+
+    def execute_mouse_move(self, position: tuple, relative: bool = False) -> None:
+        """执行鼠标移动
+
+        Args:
+            position: 目标位置 (x, y)
+            relative: 是否相对移动
+        """
+        if self._input_controller is None:
+            from bt_utils.input_controller import InputController
+            self._input_controller = InputController()
+
+        self._input_controller.mouse_move(position, relative)
+
+    def execute_mouse_scroll(self, amount: int, position: tuple = None) -> None:
+        """执行鼠标滚轮滚动
+
+        Args:
+            amount: 滚动量（正数向上，负数向下）
+            position: 滚动位置 (x, y)
+        """
+        if self._input_controller is None:
+            from bt_utils.input_controller import InputController
+            self._input_controller = InputController()
+
+        self._input_controller.mouse_scroll(amount, position)
+
+    def perform_ocr(self, image, keywords: str, language: str = "eng") -> tuple:
+        """执行OCR识别
+
+        Args:
+            image: PIL.Image 图像
+            keywords: 关键词（逗号分隔）
+            language: OCR语言
+
+        Returns:
+            (是否找到, 位置) 元组
+        """
+        if self._ocr_manager is None:
+            from bt_utils.ocr_manager import OCRManager
+            self._ocr_manager = OCRManager()
+
+        return self._ocr_manager.recognize(image, keywords, language)

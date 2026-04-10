@@ -1,0 +1,63 @@
+{
+  "version": "2.0",
+  "format_type": "behavior_tree_standalone",
+  "metadata": {
+    "created_at": "2026-04-09",
+    "app_version": "1.0.0"
+  },
+  "root_node": "seq1",
+  "nodes": {
+    "seq1": {
+      "id": "seq1",
+      "type": "SequenceNode",
+      "config": {
+        "name": "主流程",
+        "description": "",
+        "enabled": true,
+        "retry_count": 0,
+        "repeat_count": 0,
+        "timeout_ms": 0,
+        "extra": {}
+      },
+      "children": ["delay1", "key1"]
+    },
+    "delay1": {
+      "id": "delay1",
+      "type": "DelayNode",
+      "config": {
+        "name": "等待1秒",
+        "description": "",
+        "enabled": true,
+        "retry_count": 0,
+        "repeat_count": 0,
+        "timeout_ms": 0,
+        "extra": {
+          "duration_ms": 1000
+        }
+      },
+      "children": []
+    },
+    "key1": {
+      "id": "key1",
+      "type": "KeyPressNode",
+      "config": {
+        "name": "按空格键",
+        "description": "",
+        "enabled": true,
+        "retry_count": 0,
+        "repeat_count": 0,
+        "timeout_ms": 0,
+        "extra": {
+          "key": "space",
+          "action": "press",
+          "duration": 0
+        }
+      },
+      "children": []
+    }
+  },
+  "connections": [
+    {"parent_id": "seq1", "child_id": "delay1"},
+    {"parent_id": "seq1", "child_id": "key1"}
+  ]
+}

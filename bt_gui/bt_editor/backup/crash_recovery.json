@@ -1,0 +1,167 @@
+{
+  "data": {
+    "version": "2.0",
+    "format_type": "behavior_tree_editor",
+    "canvas": {
+      "name": "未命名",
+      "description": "",
+      "viewport": {
+        "zoom": 0.5894869227500005,
+        "offset_x": -22,
+        "offset_y": -27
+      }
+    },
+    "root_node": "node_13",
+    "nodes": {
+      "node_13": {
+        "id": "node_13",
+        "type": "ParallelNode",
+        "name": "并行",
+        "enabled": true,
+        "config": {
+          "success_policy": "require_all",
+          "retry_count": 0,
+          "repeat_count": -1,
+          "timeout_ms": 0,
+          "name": "",
+          "description": "",
+          "enabled": true
+        },
+        "position": {
+          "x": 400,
+          "y": 100
+        },
+        "children": [
+          "node_14",
+          "node_24"
+        ]
+      },
+      "node_14": {
+        "id": "node_14",
+        "type": "KeyPressNode",
+        "name": "按键",
+        "enabled": true,
+        "config": {
+          "key": "x",
+          "action": "press",
+          "duration": 80,
+          "repeat_count": -1,
+          "timeout_ms": 0,
+          "name": "",
+          "description": "",
+          "enabled": true
+        },
+        "position": {
+          "x": 130.0,
+          "y": 280
+        }
+      },
+      "node_24": {
+        "id": "node_24",
+        "type": "SequenceNode",
+        "name": "顺序",
+        "enabled": true,
+        "config": {
+          "retry_count": 0,
+          "repeat_count": -1,
+          "timeout_ms": 0,
+          "name": "",
+          "description": "",
+          "enabled": true,
+          "child_interval": 2000
+        },
+        "position": {
+          "x": 490.0,
+          "y": 280
+        },
+        "children": [
+          "node_28",
+          "node_17",
+          "node_29"
+        ]
+      },
+      "node_28": {
+        "id": "node_28",
+        "type": "KeyPressNode",
+        "name": "按键",
+        "enabled": true,
+        "config": {
+          "key": "left",
+          "action": "press",
+          "duration": 100,
+          "repeat_count": 0,
+          "timeout_ms": 0,
+          "name": "",
+          "description": "",
+          "enabled": true
+        },
+        "position": {
+          "x": 310.0,
+          "y": 460
+        }
+      },
+      "node_17": {
+        "id": "node_17",
+        "type": "DelayNode",
+        "name": "延时",
+        "enabled": true,
+        "config": {
+          "duration_ms": 1000,
+          "repeat_count": 0,
+          "timeout_ms": 0,
+          "name": "",
+          "description": "",
+          "enabled": true
+        },
+        "position": {
+          "x": 490.0,
+          "y": 460
+        }
+      },
+      "node_29": {
+        "id": "node_29",
+        "type": "KeyPressNode",
+        "name": "按键",
+        "enabled": true,
+        "config": {
+          "key": "right",
+          "action": "press",
+          "duration": 0,
+          "repeat_count": 0,
+          "timeout_ms": 0,
+          "name": "",
+          "description": "",
+          "enabled": true
+        },
+        "position": {
+          "x": 670.0,
+          "y": 460
+        }
+      }
+    },
+    "connections": [
+      {
+        "parent_id": "node_13",
+        "child_id": "node_14"
+      },
+      {
+        "parent_id": "node_13",
+        "child_id": "node_24"
+      },
+      {
+        "parent_id": "node_24",
+        "child_id": "node_28"
+      },
+      {
+        "parent_id": "node_24",
+        "child_id": "node_17"
+      },
+      {
+        "parent_id": "node_24",
+        "child_id": "node_29"
+      }
+    ]
+  },
+  "file_path": "D:/workspace/autodoor/script/test2.json",
+  "timestamp": "1775754464.1310618"
+}

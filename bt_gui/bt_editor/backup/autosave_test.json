@@ -1,0 +1,138 @@
+{
+  "version": "2.0",
+  "format_type": "behavior_tree_editor",
+  "canvas": {
+    "name": "未命名",
+    "description": "",
+    "viewport": {
+      "zoom": 1.0,
+      "offset_x": 3.373688272659024,
+      "offset_y": -18.014839957529034
+    }
+  },
+  "root_node": "node_7",
+  "nodes": {
+    "node_7": {
+      "id": "node_7",
+      "type": "SequenceNode",
+      "name": "顺序",
+      "enabled": true,
+      "config": {
+        "retry_count": 0,
+        "repeat_count": 2,
+        "timeout_ms": 0,
+        "name": "",
+        "description": "",
+        "enabled": true
+      },
+      "position": {
+        "x": 400,
+        "y": 100
+      },
+      "children": [
+        "node_8",
+        "node_10",
+        "node_11"
+      ]
+    },
+    "node_8": {
+      "id": "node_8",
+      "type": "KeyPressNode",
+      "name": "按键",
+      "enabled": true,
+      "config": {
+        "name": "",
+        "description": "",
+        "enabled": true,
+        "key": "a",
+        "duration": 200,
+        "repeat_count": 3,
+        "action": "press",
+        "timeout_ms": 0
+      },
+      "position": {
+        "x": 220.0,
+        "y": 280
+      },
+      "children": [
+        "node_12"
+      ]
+    },
+    "node_12": {
+      "id": "node_12",
+      "type": "KeyPressNode",
+      "name": "按键",
+      "enabled": true,
+      "config": {
+        "key": "c",
+        "action": "press",
+        "duration": 300,
+        "repeat_count": 2,
+        "timeout_ms": 0,
+        "name": "",
+        "description": "",
+        "enabled": true
+      },
+      "position": {
+        "x": 220.0,
+        "y": 460
+      }
+    },
+    "node_10": {
+      "id": "node_10",
+      "type": "DelayNode",
+      "name": "延时",
+      "enabled": true,
+      "config": {
+        "duration_ms": 10000,
+        "repeat_count": 0,
+        "timeout_ms": 0,
+        "name": "",
+        "description": "",
+        "enabled": true
+      },
+      "position": {
+        "x": 400.0,
+        "y": 280
+      }
+    },
+    "node_11": {
+      "id": "node_11",
+      "type": "KeyPressNode",
+      "name": "按键",
+      "enabled": true,
+      "config": {
+        "key": "b",
+        "action": "press",
+        "duration": 0,
+        "repeat_count": 0,
+        "timeout_ms": 0,
+        "name": "",
+        "description": "",
+        "enabled": true
+      },
+      "position": {
+        "x": 580.0,
+        "y": 280
+      }
+    }
+  },
+  "connections": [
+    {
+      "parent_id": "node_7",
+      "child_id": "node_8"
+    },
+    {
+      "parent_id": "node_7",
+      "child_id": "node_10"
+    },
+    {
+      "parent_id": "node_7",
+      "child_id": "node_11"
+    },
+    {
+      "parent_id": "node_8",
+      "child_id": "node_12"
+    }
+  ]
+}

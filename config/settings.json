@@ -1,0 +1,20 @@
+{
+  "tesseract_path": "",
+  "alarm_sound_path": "",
+  "alarm_volume": 70,
+  "shortcuts": {
+    "start": "F10",
+    "stop": "F12",
+    "record": "F11"
+  },
+  "behavior_tree": {
+    "tick_interval": 50,
+    "auto_save_interval": 30,
+    "default_format": "json"
+  },
+  "ui": {
+    "theme": "dark",
+    "language": "zh_CN",
+    "font_size": 10
+  }
+}
