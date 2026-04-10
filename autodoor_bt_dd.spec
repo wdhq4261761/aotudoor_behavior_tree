@@ -184,7 +184,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name=f'autodoor-bt-{VERSION}-game',
+    name=f'autodoor-behaviortree-{VERSION}-game',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -206,5 +206,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name=f'autodoor-bt-{VERSION}-game',
+    name=f'autodoor-behaviortree-{VERSION}-game',
 )
