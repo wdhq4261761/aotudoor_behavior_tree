@@ -205,7 +205,7 @@ jobs:
     - name: Get current version from main.py
       id: get_version
       run: |
-        VERSION=$(grep -oP 'VERSION\s*=\s*"\K[0-9]+\.[0-9]+\.[0-9]+' main.py | tail -n 1 || echo "")
+        VERSION=$(grep -oP 'VERSION\s*=\s*"v?\K[0-9]+\.[0-9]+\.[0-9]+' main.py | tail -n 1 || echo "")
         
         if [[ -z "$VERSION" ]]; then
           VERSION=$(git tag -l "v*" | sort -V | tail -n 1 | sed 's/^v//' || echo "0.0.0")
