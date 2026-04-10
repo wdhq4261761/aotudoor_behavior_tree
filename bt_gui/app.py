@@ -28,10 +28,10 @@ class BehaviorTreeApp(ctk.CTk):
         
         self._set_icon()
         
-        self._restore_last_file()
-        
         self._create_ui()
         self._setup_shortcuts()
+        
+        self._restore_last_file()
         
         self.protocol("WM_DELETE_WINDOW", self._on_close)
     
@@ -94,6 +94,14 @@ class BehaviorTreeApp(ctk.CTk):
         self.bind("<Control-o>", lambda e: self._open())
         self.bind("<Control-n>", lambda e: self._new())
         self.bind("<Delete>", lambda e: self._delete())
+        
+        start_key = self._settings.get("shortcuts.start", "F10")
+        stop_key = self._settings.get("shortcuts.stop", "F12")
+        record_key = self._settings.get("shortcuts.record", "F11")
+        
+        self.bind(f"<{start_key}>", lambda e: self._start_behavior_tree())
+        self.bind(f"<{stop_key}>", lambda e: self._stop_behavior_tree())
+        self.bind(f"<{record_key}>", lambda e: self._toggle_recording())
     
     def _undo(self):
         if hasattr(self.behavior_tree, 'undo'):
@@ -135,6 +143,24 @@ class BehaviorTreeApp(ctk.CTk):
         if "行为树" in current_tab:
             if hasattr(self.behavior_tree, '_delete_selected'):
                 self.behavior_tree._delete_selected()
+    
+    def _start_behavior_tree(self):
+        """开始运行行为树"""
+        if hasattr(self.behavior_tree, 'start_tree'):
+            self.behavior_tree.start_tree()
+    
+    def _stop_behavior_tree(self):
+        """停止运行行为树"""
+        if hasattr(self.behavior_tree, 'stop_tree'):
+            self.behavior_tree.stop_tree()
+    
+    def _toggle_recording(self):
+        """切换录制状态"""
+        if hasattr(self.script_editor, '_is_recording'):
+            if self.script_editor._is_recording:
+                self.script_editor._stop_recording()
+            else:
+                self.script_editor._start_recording()
     
     def _on_close(self):
         if hasattr(self, 'behavior_tree') and self.behavior_tree:

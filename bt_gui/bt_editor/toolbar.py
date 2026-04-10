@@ -91,8 +91,8 @@ class EditorToolbar(ctk.CTkFrame):
         
         ctk.CTkButton(
             file_frame,
-            text="保存",
-            width=70,
+            text="保存项目",
+            width=80,
             fg_color=self._dark_colors['primary'],
             hover_color=self._dark_colors['primary_hover'],
             command=self._on_save_click,

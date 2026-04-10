@@ -60,6 +60,7 @@ class SettingsTab(ctk.CTkFrame):
         self._create_project_section(scroll_frame)
         self._create_tesseract_section(scroll_frame)
         self._create_alarm_section(scroll_frame)
+        self._create_shortcut_section(scroll_frame)
     
     def _create_project_section(self, parent):
         project_frame = CardFrame(parent)

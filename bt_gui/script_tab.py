@@ -2,6 +2,8 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox, filedialog
 import os
+import threading
+import time
 
 from .theme import Theme
 from .widgets import CardFrame, AnimatedButton, NumericEntry, create_divider
@@ -20,18 +22,27 @@ def center_window_on_parent(window, parent):
     window.geometry(f"+{x}+{y}")
 
 def askyesno_centered(parent, title, message):
-    dialog = tk.Toplevel(parent)
+    from .theme import Theme
+    
+    dark_colors = Theme.get_dark_colors()
+    
+    dialog = ctk.CTkToplevel(parent)
     dialog.title(title)
     dialog.transient(parent)
     dialog.grab_set()
     dialog.resizable(False, False)
+    dialog.configure(fg_color=dark_colors['bg_secondary'])
+    
+    dialog.minsize(300, 120)
+    dialog.geometry("350x140")
     
     result = [False]
     
     frame = ctk.CTkFrame(dialog, fg_color='transparent')
     frame.pack(fill='both', expand=True, padx=20, pady=15)
     
-    label = ctk.CTkLabel(frame, text=message, font=Theme.get_font('base'), wraplength=300)
+    label = ctk.CTkLabel(frame, text=message, font=Theme.get_font('base'), wraplength=300,
+                          text_color=dark_colors['text_primary'])
     label.pack(pady=(0, 15))
     
     btn_frame = ctk.CTkFrame(frame, fg_color='transparent')
@@ -61,6 +72,23 @@ def askyesno_centered(parent, title, message):
     return result[0]
 
 
+PYNPUT_TO_PYAUTOGUI_MAP = {
+    'page_up': 'pageup',
+    'page_down': 'pagedown',
+    'ctrl_l': 'ctrlleft',
+    'ctrl_r': 'ctrlright',
+    'shift_l': 'shiftleft',
+    'shift_r': 'shiftright',
+    'alt_l': 'altleft',
+    'alt_r': 'altright',
+    'cmd': 'command',
+    'cmd_l': 'command',
+    'cmd_r': 'command',
+    'win_l': 'winleft',
+    'win_r': 'winright',
+}
+
+
 class ScriptTab(ctk.CTkFrame):
     def __init__(self, master, app, **kwargs):
         super().__init__(master, **kwargs)
@@ -74,6 +102,16 @@ class ScriptTab(ctk.CTkFrame):
         
         self._init_variables()
         self._create_ui()
+        
+        self._recording_thread = None
+        self._is_recording = False
+        self._recording_events = []
+        self._recording_start_time = None
+        self._last_event_time = None
+        self._pressed_keys = set()
+        self._last_mouse_position = None
+        self._keyboard_listener = None
+        self._mouse_listener = None
     
     def _init_variables(self):
         self.key_var = tk.StringVar(value="1")
@@ -528,13 +566,211 @@ class ScriptTab(ctk.CTkFrame):
         self.script_text.see(tk.END)
     
     def _start_recording(self):
+        try:
+            from pynput import keyboard, mouse
+        except ImportError:
+            messagebox.showerror("错误", "录制功能需要pynput库支持，请运行 'pip install pynput' 安装。")
+            return
+        
         self.record_btn.configure(state='disabled')
         self.stop_record_btn.configure(state='normal')
-        messagebox.showinfo("提示", "录制功能需要keyboard库支持")
+        
+        self._is_recording = True
+        self._recording_events = []
+        self._recording_start_time = time.time()
+        self._last_event_time = self._recording_start_time
+        self._pressed_keys = set()
+        self._last_mouse_position = None
+        
+        self._play_start_sound()
+        
+        def record():
+            try:
+                self._keyboard_listener = keyboard.Listener(
+                    on_press=self._on_key_press,
+                    on_release=self._on_key_release
+                )
+                self._mouse_listener = mouse.Listener(
+                    on_move=self._on_mouse_move,
+                    on_click=self._on_mouse_click
+                )
+                
+                self._keyboard_listener.start()
+                self._mouse_listener.start()
+                
+                while self._is_recording:
+                    time.sleep(0.1)
+                    
+            except Exception as e:
+                self.after(0, lambda: messagebox.showerror("错误", f"录制启动失败: {str(e)}"))
+            finally:
+                self._stop_listeners()
+                self._generate_recorded_script()
+        
+        self._recording_thread = threading.Thread(target=record, daemon=True)
+        self._recording_thread.start()
     
     def _stop_recording(self):
+        self._is_recording = False
+        
         self.record_btn.configure(state='normal')
         self.stop_record_btn.configure(state='disabled')
+        
+        self._stop_listeners()
+        self._play_stop_sound()
+    
+    def _stop_listeners(self):
+        if self._keyboard_listener:
+            try:
+                self._keyboard_listener.stop()
+            except Exception:
+                pass
+            self._keyboard_listener = None
+        
+        if self._mouse_listener:
+            try:
+                self._mouse_listener.stop()
+            except Exception:
+                pass
+            self._mouse_listener = None
+    
+    def _on_key_press(self, key):
+        if not self._is_recording:
+            return
+        
+        key_name = self._get_key_name(key)
+        if not key_name:
+            return
+        
+        record_hotkey = self._get_record_hotkey().lower()
+        if key_name.lower() == record_hotkey:
+            return
+        
+        if key_name not in self._pressed_keys:
+            self._add_delay()
+            self._recording_events.append({
+                "type": "keydown",
+                "key": key_name
+            })
+            self._pressed_keys.add(key_name)
+    
+    def _on_key_release(self, key):
+        if not self._is_recording:
+            return
+        
+        key_name = self._get_key_name(key)
+        if not key_name:
+            return
+        
+        record_hotkey = self._get_record_hotkey().lower()
+        if key_name.lower() == record_hotkey:
+            return
+        
+        if key_name in self._pressed_keys:
+            self._add_delay()
+            self._recording_events.append({
+                "type": "keyup",
+                "key": key_name
+            })
+            self._pressed_keys.remove(key_name)
+    
+    def _get_record_hotkey(self) -> str:
+        from config.settings_manager import SettingsManager
+        settings = SettingsManager.get_instance()
+        return settings.get("shortcuts.record", "f11")
+    
+    def _on_mouse_move(self, x, y):
+        self._last_mouse_position = (x, y)
+    
+    def _on_mouse_click(self, x, y, button, pressed):
+        if not self._is_recording:
+            return
+        
+        self._add_delay()
+        
+        if self._last_mouse_position:
+            self._recording_events.append({
+                "type": "moveto",
+                "x": self._last_mouse_position[0],
+                "y": self._last_mouse_position[1]
+            })
+        
+        self._recording_events.append({
+            "type": f"mouse_{'down' if pressed else 'up'}",
+            "button": button.name
+        })
+    
+    def _add_delay(self):
+        current_time = time.time()
+        delay = int((current_time - self._last_event_time) * 1000)
+        if delay > 0:
+            self._recording_events.append({
+                "type": "delay",
+                "time": delay
+            })
+        self._last_event_time = current_time
+    
+    def _get_key_name(self, key) -> str:
+        if hasattr(key, 'char') and key.char is not None:
+            if isinstance(key.char, str) and len(key.char) == 1:
+                char_code = ord(key.char)
+                if char_code < 32 or char_code == 127:
+                    if hasattr(key, 'vk') and key.vk is not None:
+                        from bt_utils.vk_mapping import vk_to_char
+                        vk_char = vk_to_char(key.vk)
+                        if vk_char:
+                            return vk_char
+                        return str(key.vk)
+                else:
+                    return key.char
+            else:
+                return key.char
+        if hasattr(key, 'name') and key.name:
+            key_name = key.name
+            return PYNPUT_TO_PYAUTOGUI_MAP.get(key_name, key_name)
+        if hasattr(key, 'vk') and key.vk is not None:
+            from bt_utils.vk_mapping import vk_to_char
+            vk_char = vk_to_char(key.vk)
+            if vk_char:
+                return vk_char
+            return str(key.vk)
+        return None
+    
+    def _generate_recorded_script(self):
+        script_content = ""
+        
+        for event in self._recording_events:
+            if event["type"] == "delay":
+                script_content += f"Delay {event['time']}\n"
+            elif event["type"] in ["keydown", "keyup"]:
+                script_content += f"{event['type'].capitalize()} \"{event['key']}\", 1\n"
+            elif event["type"] == "moveto":
+                script_content += f"MoveTo {event['x']}, {event['y']}\n"
+            elif event["type"] in ["mouse_down", "mouse_up"]:
+                button = event["button"].capitalize()
+                action = event["type"].split('_')[1].capitalize()
+                script_content += f"{button}{action} 1\n"
+        
+        self.after(0, lambda: (
+            self.script_text.insert(tk.INSERT, script_content),
+            self.script_text.see(tk.END)
+        ))
+    
+    def _play_start_sound(self):
+        try:
+            from bt_utils.alarm import AlarmPlayer
+            player = AlarmPlayer()
+            player.play_start_sound()
+        except Exception:
+            pass
+    
+    def _play_stop_sound(self):
+        try:
+            from bt_utils.alarm import AlarmPlayer
+            player = AlarmPlayer()
+            player.play_stop_sound()
+        except Exception:
+            pass
     
     def _check_script_modified(self):
         if self._modified:

@@ -538,18 +538,23 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             
             if self.project_root and os.path.exists(self.project_root):
                 self.toolbar.set_project_path(self.project_root)
+                if not self.project_manager:
+                    from bt_utils.project_manager import ProjectManager
+                    self.project_manager = ProjectManager(self.project_root)
             else:
                 script_dir = os.path.dirname(file_path)
                 project_json_path = os.path.join(script_dir, "project.json")
                 
                 if os.path.exists(project_json_path):
                     self.project_root = script_dir
+                    from bt_utils.project_manager import ProjectManager
+                    self.project_manager = ProjectManager(self.project_root)
                     self.toolbar.set_project_path(self.project_root)
                 else:
                     self.toolbar.set_file_path(file_path)
             
-            from bt_utils.config_manager import ConfigManager
-            ConfigManager.set_last_file_path(file_path)
+            from config.settings_manager import SettingsManager
+            SettingsManager.get_instance().set_last_file_path(file_path)
             
         except Exception as e:
             messagebox.showerror("错误", f"加载文件失败: {str(e)}")
@@ -703,16 +708,50 @@ class BehaviorTreeEditor(ctk.CTkFrame):
                 return 'data'
     
     def save_tree(self, file_path: Optional[str] = None, save_as: bool = False):
+        if self.project_root and self.project_manager and not save_as:
+            tree_data = self.canvas.get_tree_data()
+            self.project_manager.save_project(tree_data)
+            
+            if self.file_path:
+                from config.settings_manager import SettingsManager
+                SettingsManager.get_instance().set_last_file_path(self.file_path)
+            
+            self._set_modified(False)
+            return
+        
+        if not self.project_root or save_as:
+            self._on_new_project_dialog()
+            return
+        
         if not file_path:
-            if not self.file_path or save_as:
-                from tkinter import filedialog
-                file_path = filedialog.asksaveasfilename(
-                    title="保存行为树",
-                    defaultextension=".json",
-                    filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
-                )
-            else:
-                file_path = self.file_path
+            from tkinter import filedialog
+            from config.settings_manager import SettingsManager
+            
+            settings = SettingsManager.get_instance()
+            default_path = settings.get("default_project_path", "")
+            
+            if not default_path or not os.path.exists(default_path):
+                default_path = SettingsManager.get_default_workspace_path()
+                
+                try:
+                    os.makedirs(default_path, exist_ok=True)
+                except Exception:
+                    default_path = ""
+            
+            initial_dir = default_path if default_path else None
+            initial_file = None
+            
+            if self.file_path and os.path.exists(self.file_path):
+                initial_dir = os.path.dirname(self.file_path)
+                initial_file = os.path.basename(self.file_path)
+            
+            file_path = filedialog.asksaveasfilename(
+                title="保存行为树",
+                initialdir=initial_dir,
+                initialfile=initial_file,
+                defaultextension=".json",
+                filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
+            )
         
         if not file_path:
             return
@@ -727,8 +766,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self._set_modified(False)
             self.toolbar.set_file_path(file_path)
             
-            from bt_utils.config_manager import ConfigManager
-            ConfigManager.set_last_file_path(file_path)
+            from config.settings_manager import SettingsManager
+            SettingsManager.get_instance().set_last_file_path(file_path)
             
         except Exception as e:
             messagebox.showerror("错误", f"保存文件失败: {str(e)}")
@@ -1039,6 +1078,9 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.file_path = tree_file
         
         self.toolbar.set_project_path(self.project_root)
+        
+        from config.settings_manager import SettingsManager
+        SettingsManager.get_instance().set_last_file_path(tree_file)
     
     def save_project(self):
         """保存项目"""
@@ -1110,7 +1152,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         if project_root:
             try:
                 self.open_project(project_root)
-                messagebox.showinfo("成功", "项目打开成功")
             except Exception as e:
                 messagebox.showerror("错误", f"打开项目失败: {str(e)}")
     

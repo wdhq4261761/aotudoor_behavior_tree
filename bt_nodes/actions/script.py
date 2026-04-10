@@ -1,7 +1,8 @@
 import os
+import threading
 from bt_core.nodes import ActionNode, NodeStatus
 from bt_core.config import NodeConfig
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 class ScriptNode(ActionNode):
@@ -11,9 +12,15 @@ class ScriptNode(ActionNode):
         super().__init__(node_id, config)
         self.script_path = self.config.get("script_path", "")
         self.loop = self.config.get_bool("loop", False)
+        self._executor: Optional[Any] = None
+        self._aborted = False
+        self._lock = threading.Lock()
 
     def _execute_action(self, context) -> NodeStatus:
         from bt_utils.log_manager import LogManager
+        
+        with self._lock:
+            self._aborted = False
         
         try:
             script_path = self.script_path
@@ -47,12 +54,21 @@ class ScriptNode(ActionNode):
                 return NodeStatus.FAILURE
             
             from bt_utils.script_executor import ScriptExecutor
-            executor = ScriptExecutor()
+            self._executor = ScriptExecutor()
             
             with open(absolute_script_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            executor.run_script(content, context)
+            self._executor.run_script(content, context)
+            
+            with self._lock:
+                if self._aborted:
+                    LogManager.instance().log_info(
+                        node_type="脚本节点",
+                        node_name=self.name,
+                        message="执行已被中止"
+                    )
+                    return NodeStatus.FAILURE
             
             LogManager.instance().log_success(
                 node_type="脚本节点",
@@ -60,12 +76,31 @@ class ScriptNode(ActionNode):
             )
             return NodeStatus.SUCCESS
         except Exception as e:
+            with self._lock:
+                if self._aborted:
+                    return NodeStatus.FAILURE
+            
             LogManager.instance().log_failure(
                 node_type="脚本节点",
                 node_name=self.name,
                 reason=f"执行异常: {str(e)}"
             )
             return NodeStatus.FAILURE
+        finally:
+            self._executor = None
+
+    def abort(self, context) -> None:
+        with self._lock:
+            self._aborted = True
+        
+        if self._executor is not None:
+            try:
+                if hasattr(self._executor, 'stop_script'):
+                    self._executor.stop_script()
+            except Exception:
+                pass
+        self._executor = None
+        super().abort(context)
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()

@@ -89,7 +89,9 @@ class BehaviorTreeEngine:
             self._running = False
             self._paused = False
 
-            if self.root_node:
+            if self.root_node and self.context:
+                self.root_node.abort(self.context)
+            elif self.root_node:
                 self.root_node.reset()
 
             if self._on_status_change:

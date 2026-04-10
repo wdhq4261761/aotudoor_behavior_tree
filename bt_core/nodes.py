@@ -450,7 +450,7 @@ class ConditionNode(Node):
         self.save_position = self.config.get_bool("save_position", True)
         
         try:
-            from bt_utils.config_manager import get_default_position_key
+            from config.settings_manager import get_default_position_key
             default_position_key = get_default_position_key()
         except ImportError:
             default_position_key = "last_detection_position"

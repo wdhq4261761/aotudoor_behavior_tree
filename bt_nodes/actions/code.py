@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import threading
 from bt_core.nodes import ActionNode, NodeStatus
 from bt_core.config import NodeConfig
 from typing import Dict, Any, List, Optional
@@ -22,6 +23,8 @@ class CodeNode(ActionNode):
         self.args: List[str] = self.config.get("args", [])
         self.wait_complete = self.config.get_bool("wait_complete", True)
         self._process: Optional[subprocess.Popen] = None
+        self._aborted = False
+        self._lock = threading.Lock()
 
     def _detect_code_type(self) -> str:
         if self.code_type != "auto":
@@ -57,6 +60,9 @@ class CodeNode(ActionNode):
 
     def _execute_action(self, context) -> NodeStatus:
         from bt_utils.log_manager import LogManager, LogLevel
+        
+        with self._lock:
+            self._aborted = False
         
         try:
             code_path = self.code_path
@@ -98,60 +104,64 @@ class CodeNode(ActionNode):
 
             cmd = self._build_command(absolute_code_path)
             
+            import locale
+            preferred_encoding = locale.getpreferredencoding(False)
+            
+            self._process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding=preferred_encoding,
+                errors='replace'
+            )
+            
             if self.wait_complete:
-                import locale
-                
-                preferred_encoding = locale.getpreferredencoding(False)
-                
                 try:
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        encoding=preferred_encoding,
-                        errors='replace'
-                    )
-                except Exception:
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        encoding='utf-8',
-                        errors='replace'
-                    )
-                
-                if result.returncode != 0:
-                    error_msg = f"返回码: {result.returncode}"
-                    if result.stderr:
-                        error_msg += f", 错误: {result.stderr[:200]}"
+                    stdout, stderr = self._process.communicate()
                     
-                    LogManager.instance().log_failure(
-                        node_type="代码节点",
-                        node_name=self.name,
-                        reason=error_msg
-                    )
-                    return NodeStatus.FAILURE
-                
-                if result.stdout and result.stdout.strip():
-                    output_lines = result.stdout.strip().split('\n')
-                    for line in output_lines:
-                        LogManager.instance().log_info(
+                    with self._lock:
+                        if self._aborted:
+                            LogManager.instance().log_info(
+                                node_type="代码节点",
+                                node_name=self.name,
+                                message="执行已被中止"
+                            )
+                            return NodeStatus.FAILURE
+                    
+                    if self._process.returncode != 0:
+                        error_msg = f"返回码: {self._process.returncode}"
+                        if stderr:
+                            error_msg += f", 错误: {stderr[:200]}"
+                        
+                        LogManager.instance().log_failure(
                             node_type="代码节点",
                             node_name=self.name,
-                            message=line
+                            reason=error_msg
                         )
-                else:
-                    LogManager.instance().log_success(
-                        node_type="代码节点",
-                        node_name=self.name
-                    )
-                return NodeStatus.SUCCESS
+                        return NodeStatus.FAILURE
+                    
+                    if stdout and stdout.strip():
+                        output_lines = stdout.strip().split('\n')
+                        for line in output_lines:
+                            LogManager.instance().log_info(
+                                node_type="代码节点",
+                                node_name=self.name,
+                                message=line
+                            )
+                    else:
+                        LogManager.instance().log_success(
+                            node_type="代码节点",
+                            node_name=self.name
+                        )
+                    return NodeStatus.SUCCESS
+                    
+                except Exception as e:
+                    with self._lock:
+                        if self._aborted:
+                            return NodeStatus.FAILURE
+                    raise
             else:
-                self._process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
                 LogManager.instance().log_success(
                     node_type="代码节点",
                     node_name=self.name
@@ -165,17 +175,23 @@ class CodeNode(ActionNode):
                 reason=f"执行异常: {str(e)}"
             )
             return NodeStatus.FAILURE
+        finally:
+            self._process = None
 
     def abort(self, context) -> None:
+        with self._lock:
+            self._aborted = True
+        
         if self._process and self._process.poll() is None:
             try:
                 self._process.terminate()
-                self._process.wait(timeout=2)
-            except Exception:
                 try:
+                    self._process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
                     self._process.kill()
-                except Exception:
-                    pass
+                    self._process.wait(timeout=1)
+            except Exception:
+                pass
         self._process = None
         super().abort(context)
 

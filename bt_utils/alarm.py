@@ -104,3 +104,62 @@ class AlarmPlayer:
                 pygame.mixer.stop()
             except Exception:
                 pass
+
+    def play_start_sound(self) -> None:
+        """播放开始运行的音频"""
+        self._init_pygame()
+        
+        if not self._pygame_initialized:
+            return
+        
+        import pygame
+        
+        sound_file = self._resolve_sound_path(None)
+        if not sound_file:
+            return
+        
+        try:
+            pygame.mixer.music.load(sound_file)
+            pygame.mixer.music.set_volume(0.7)
+            pygame.mixer.music.play()
+        except Exception as e:
+            print(f"[WARN] 播放开始运行音效失败: {e}")
+
+    def play_stop_sound(self) -> None:
+        """播放停止运行的音频"""
+        self._init_pygame()
+        
+        if not self._pygame_initialized:
+            return
+        
+        import pygame
+        import sys
+        
+        try:
+            if getattr(sys, 'frozen', False):
+                app_root = os.path.dirname(sys.executable)
+            else:
+                app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
+            reversed_file = os.path.join(app_root, "assets", "sounds", "temp_reversed.mp3")
+            reversed_file = os.path.normpath(reversed_file)
+            
+            if os.path.exists(reversed_file):
+                pygame.mixer.music.load(reversed_file)
+                pygame.mixer.music.set_volume(0.7)
+                pygame.mixer.music.play()
+            else:
+                sound_file = self._resolve_sound_path(None)
+                if sound_file:
+                    pygame.mixer.music.load(sound_file)
+                    pygame.mixer.music.set_volume(0.7)
+                    pygame.mixer.music.play()
+        except Exception:
+            sound_file = self._resolve_sound_path(None)
+            if sound_file:
+                try:
+                    pygame.mixer.music.load(sound_file)
+                    pygame.mixer.music.set_volume(0.7)
+                    pygame.mixer.music.play()
+                except Exception:
+                    pass

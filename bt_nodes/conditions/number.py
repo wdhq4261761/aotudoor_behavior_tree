@@ -31,7 +31,7 @@ class NumberConditionNode(ConditionNode):
         self.save_value = self.config.get_bool("save_value", True)
         
         try:
-            from bt_utils.config_manager import get_default_value_key
+            from config.settings_manager import get_default_value_key
             default_value_key = get_default_value_key()
         except ImportError:
             default_value_key = "last_number_value"

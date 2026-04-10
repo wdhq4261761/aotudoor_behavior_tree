@@ -7,7 +7,7 @@ from bt_utils.log_manager import LogManager
 
 def _get_default_position_key() -> str:
     try:
-        from bt_utils.config_manager import get_default_position_key
+        from config.settings_manager import get_default_position_key
         return get_default_position_key()
     except ImportError:
         return "last_detection_position"
