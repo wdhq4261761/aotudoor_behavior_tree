@@ -31,17 +31,73 @@ class SettingsTab(ctk.CTkFrame):
         self.alarm_volume = tk.IntVar(value=70)
         self.alarm_volume_str = tk.StringVar(value="70")
         
+        default_project_path = self._get_default_project_path()
+        self.default_project_path = tk.StringVar(value=default_project_path)
+        
         self.start_shortcut_var = tk.StringVar(value="F10")
         self.stop_shortcut_var = tk.StringVar(value="F12")
         self.record_hotkey_var = tk.StringVar(value="F11")
+    
+    def _get_default_project_path(self) -> str:
+        """获取默认项目保存路径
+        
+        Returns:
+            默认项目保存路径
+        """
+        from config.settings_manager import SettingsManager
+        settings_manager = SettingsManager()
+        saved_path = settings_manager.get("default_project_path", "")
+        
+        if saved_path and os.path.exists(saved_path):
+            return saved_path
+        
+        return SettingsManager.get_default_workspace_path()
     
     def _create_ui(self):
         scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         scroll_frame.pack(fill="both", expand=True, padx=Theme.DIMENSIONS['spacing_md'], pady=Theme.DIMENSIONS['spacing_md'])
         
+        self._create_project_section(scroll_frame)
         self._create_tesseract_section(scroll_frame)
         self._create_alarm_section(scroll_frame)
-        self._create_shortcut_section(scroll_frame)
+    
+    def _create_project_section(self, parent):
+        project_frame = CardFrame(parent)
+        project_frame.pack(fill="x", pady=(0, Theme.DIMENSIONS['spacing_md']))
+        
+        project_header = ctk.CTkFrame(project_frame, fg_color="transparent")
+        project_header.pack(fill="x", padx=Theme.DIMENSIONS['spacing_md'], pady=(Theme.DIMENSIONS['spacing_md'], Theme.DIMENSIONS['spacing_sm']))
+        create_section_title(project_header, "项目设置", level=1).pack(side="left")
+        
+        create_divider(project_frame)
+        
+        project_row = ctk.CTkFrame(project_frame, fg_color="transparent")
+        project_row.pack(fill="x", padx=Theme.DIMENSIONS['spacing_md'], pady=(Theme.DIMENSIONS['spacing_sm'], Theme.DIMENSIONS['spacing_md']))
+        
+        ctk.CTkLabel(project_row, text="默认保存位置:", font=Theme.get_font("sm"), text_color=self._dark_colors['text_secondary']).pack(side="left")
+        
+        self.project_path_entry = ctk.CTkEntry(
+            project_row, 
+            textvariable=self.default_project_path, 
+            height=28, 
+            state="disabled",
+            fg_color=self._dark_colors['bg_tertiary'],
+            text_color=self._dark_colors['text_primary']
+        )
+        self.project_path_entry.pack(side="left", fill="x", expand=True, padx=(Theme.DIMENSIONS['spacing_sm'], Theme.DIMENSIONS['spacing_sm']))
+        
+        self.browse_project_btn = AnimatedButton(
+            project_row, 
+            text="浏览", 
+            font=Theme.get_font("xs"), 
+            width=50, 
+            height=28,
+            corner_radius=Theme.DIMENSIONS['button_corner_radius'], 
+            fg_color=Theme.COLORS['primary'],
+            hover_color=Theme.COLORS['primary_hover'],
+            command=self._browse_project_path
+        )
+        self.browse_project_btn.pack(side="left")
     
     def _create_tesseract_section(self, parent):
         tess_frame = CardFrame(parent)
@@ -205,6 +261,23 @@ class SettingsTab(ctk.CTkFrame):
         if file_path:
             self.tesseract_path.set(file_path)
     
+    def _browse_project_path(self):
+        folder_path = filedialog.askdirectory(
+            title="选择默认项目保存位置"
+        )
+        if folder_path:
+            self.default_project_path.set(folder_path)
+            self._ensure_workspace_exists()
+    
+    def _ensure_workspace_exists(self):
+        """确保workspace文件夹存在"""
+        workspace_path = self.default_project_path.get()
+        if workspace_path:
+            try:
+                os.makedirs(workspace_path, exist_ok=True)
+            except Exception as e:
+                messagebox.showerror("错误", f"无法创建workspace文件夹: {str(e)}")
+    
     def _browse_alarm_sound(self):
         file_path = filedialog.askopenfilename(
             title="选择报警声音文件",
@@ -278,6 +351,7 @@ class SettingsTab(ctk.CTkFrame):
             "tesseract_path": self.tesseract_path.get(),
             "alarm_sound_path": self.alarm_sound_path.get(),
             "alarm_volume": self.alarm_volume.get(),
+            "default_project_path": self.default_project_path.get(),
             "shortcuts": {
                 "start": self.start_shortcut_var.get(),
                 "stop": self.stop_shortcut_var.get(),
@@ -290,6 +364,8 @@ class SettingsTab(ctk.CTkFrame):
         default_alarm_sound = ResourceManager().get_alarm_sound_path()
         if not os.path.exists(default_alarm_sound):
             default_alarm_sound = ""
+        
+        default_project_path = self._get_default_project_path()
         
         if "tesseract_path" in settings and settings["tesseract_path"]:
             if os.path.exists(settings["tesseract_path"]):
@@ -309,6 +385,18 @@ class SettingsTab(ctk.CTkFrame):
         
         if "alarm_volume" in settings:
             self.alarm_volume.set(settings["alarm_volume"])
+            self.alarm_volume_str.set(str(settings["alarm_volume"]))
+        
+        if "default_project_path" in settings and settings["default_project_path"]:
+            if os.path.exists(settings["default_project_path"]):
+                self.default_project_path.set(settings["default_project_path"])
+            else:
+                self.default_project_path.set(default_project_path)
+        else:
+            self.default_project_path.set(default_project_path)
+        
+        self._ensure_workspace_exists()
+        
         if "shortcuts" in settings:
             shortcuts = settings["shortcuts"]
             if "start" in shortcuts:

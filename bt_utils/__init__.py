@@ -5,14 +5,15 @@ from .image_processor import ImageProcessor
 from .recorder import ScriptRecorder
 from .script_executor import ScriptExecutor
 from .alarm import AlarmPlayer
-from .config_manager import (
-    ConfigManager,
-    BehaviorTreeConfig,
+from config.settings_manager import (
+    SettingsManager as ConfigManager,
     BlackboardConfig,
+    SessionConfig,
     get_default_position_key,
     get_default_value_key,
     get_blackboard_config,
-    get_behavior_tree_config,
+    get_settings_manager,
+    get_session_config,
 )
 from .consistency_checker import (
     ConsistencyChecker,
@@ -46,6 +47,9 @@ from .resource_manager import (
     get_resource_path,
 )
 
+BehaviorTreeConfig = SessionConfig
+get_behavior_tree_config = get_session_config
+
 __all__ = [
     "ScreenshotManager",
     "InputController",
@@ -57,10 +61,13 @@ __all__ = [
     "ConfigManager",
     "BehaviorTreeConfig",
     "BlackboardConfig",
+    "SessionConfig",
     "get_default_position_key",
     "get_default_value_key",
     "get_blackboard_config",
     "get_behavior_tree_config",
+    "get_session_config",
+    "get_settings_manager",
     "ConsistencyChecker",
     "ConsistencyReport",
     "ConsistencyIssue",

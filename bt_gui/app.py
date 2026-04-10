@@ -1,17 +1,15 @@
 import customtkinter as ctk
 from typing import Optional
 import os
-import json
 
 from .theme import Theme, init_theme
 from .bt_editor import BehaviorTreeEditor
 from .script_tab import ScriptTab
 from .settings_tab import SettingsTab
-from bt_utils.config_manager import ConfigManager
+from config.settings_manager import SettingsManager
 
 
 class BehaviorTreeApp(ctk.CTk):
-    CONFIG_FILE_NAME = "bt_editor_config.json"
     
     def __init__(self):
         init_theme()
@@ -20,7 +18,7 @@ class BehaviorTreeApp(ctk.CTk):
         
         self._dark_colors = Theme.get_dark_colors()
         
-        self._config_path = self._get_config_path()
+        self._settings = SettingsManager.get_instance()
         
         self.title("行为树编辑器")
         self.geometry("1280x800")
@@ -30,41 +28,16 @@ class BehaviorTreeApp(ctk.CTk):
         
         self._set_icon()
         
-        self._load_config()
+        self._restore_last_file()
         
         self._create_ui()
         self._setup_shortcuts()
         
-        self._restore_last_file()
-        
         self.protocol("WM_DELETE_WINDOW", self._on_close)
-    
-    def _get_config_path(self) -> str:
-        """获取配置文件路径"""
-        config_dir = os.path.join(os.path.expanduser("~"), ".autodoor_bt")
-        os.makedirs(config_dir, exist_ok=True)
-        return os.path.join(config_dir, self.CONFIG_FILE_NAME)
-    
-    def _load_config(self):
-        """加载配置"""
-        if os.path.exists(self._config_path):
-            ConfigManager.load_from_file(self._config_path)
-    
-    def _save_config(self):
-        """保存配置"""
-        try:
-            if hasattr(self, 'behavior_tree') and self.behavior_tree:
-                file_path = self.behavior_tree.file_path
-                if file_path:
-                    ConfigManager.set_last_file_path(file_path)
-            
-            ConfigManager.save_to_file(self._config_path)
-        except Exception as e:
-            print(f"[WARN] 保存配置失败: {e}")
     
     def _restore_last_file(self):
         """恢复上次打开的文件"""
-        last_file = ConfigManager.get_last_file_path()
+        last_file = self._settings.get_last_file_path()
         if last_file and os.path.exists(last_file):
             try:
                 if hasattr(self, 'behavior_tree') and self.behavior_tree:
@@ -164,8 +137,10 @@ class BehaviorTreeApp(ctk.CTk):
                 self.behavior_tree._delete_selected()
     
     def _on_close(self):
-        self._save_config()
         if hasattr(self, 'behavior_tree') and self.behavior_tree:
+            file_path = self.behavior_tree.file_path
+            if file_path:
+                self._settings.set_last_file_path(file_path)
             self.behavior_tree.destroy()
         self.destroy()
 

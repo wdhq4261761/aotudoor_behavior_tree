@@ -22,9 +22,33 @@ class NewProjectDialog(ctk.CTkToplevel):
         self._dark_colors = Theme.get_dark_colors()
         self.configure(fg_color=self._dark_colors['bg_primary'])
         
+        self._default_location = self._get_default_project_path()
+        
         self._create_ui()
         
         self._center_window()
+    
+    def _get_default_project_path(self) -> str:
+        """获取默认项目保存路径
+        
+        Returns:
+            默认项目保存路径
+        """
+        from config.settings_manager import SettingsManager
+        settings_manager = SettingsManager()
+        saved_path = settings_manager.get("default_project_path", "")
+        
+        if saved_path and os.path.exists(saved_path):
+            return saved_path
+        
+        workspace_dir = SettingsManager.get_default_workspace_path()
+        
+        try:
+            os.makedirs(workspace_dir, exist_ok=True)
+        except Exception:
+            pass
+        
+        return workspace_dir
     
     def _center_window(self):
         """将窗口居中"""
@@ -85,6 +109,7 @@ class NewProjectDialog(ctk.CTkToplevel):
             placeholder_text="选择项目保存位置"
         )
         self.location_entry.pack(side="left", fill="x", expand=True)
+        self.location_entry.insert(0, self._default_location)
         
         browse_button = ctk.CTkButton(
             location_frame,

@@ -18,16 +18,38 @@ class ImageConditionNode(ConditionNode):
 
     def _check_condition(self, context) -> bool:
         try:
-            if not os.path.exists(self.template_path):
+            template_path = self.template_path
+            
+            if not template_path:
                 LogManager.instance().log_failure(
                     node_type="图像检测节点",
                     node_name=self.name,
-                    reason=f"模板文件不存在: {self.template_path}"
+                    reason="模板路径为空"
+                )
+                return False
+            
+            absolute_template_path = template_path
+            
+            if template_path.startswith("./"):
+                if hasattr(context, 'resolve_path') and context.resolve_path:
+                    absolute_template_path = context.resolve_path(template_path)
+                elif hasattr(context, 'project_root'):
+                    project_root = context.project_root
+                    absolute_template_path = os.path.join(project_root, template_path[2:])
+            else:
+                if not os.path.isabs(template_path):
+                    absolute_template_path = os.path.abspath(template_path)
+            
+            if not os.path.exists(absolute_template_path):
+                LogManager.instance().log_failure(
+                    node_type="图像检测节点",
+                    node_name=self.name,
+                    reason=f"模板文件不存在: {absolute_template_path}"
                 )
                 return False
 
             if self._template_image is None:
-                self._template_image = Image.open(self.template_path)
+                self._template_image = Image.open(absolute_template_path)
 
             screenshot = context.get_screenshot(self.region)
 

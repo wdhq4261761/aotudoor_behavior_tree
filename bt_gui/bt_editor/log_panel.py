@@ -6,9 +6,9 @@ from bt_utils.log_manager import LogManager, LogEntry
 class LogPanel(ctk.CTkFrame):
     MAX_LINES = 500
     FLUSH_INTERVAL = 200
-    MIN_HEIGHT = 80
-    MAX_HEIGHT = 500
-    DEFAULT_HEIGHT = 150
+    MIN_HEIGHT = 100
+    MAX_HEIGHT = 600
+    DEFAULT_HEIGHT = 120
     
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -83,7 +83,8 @@ class LogPanel(ctk.CTkFrame):
         return toolbar
     
     def _create_text_area(self):
-        self._text_area = ctk.CTkTextbox(self, height=self._current_height, wrap="word")
+        height = max(self.MIN_HEIGHT, self._current_height)
+        self._text_area = ctk.CTkTextbox(self, height=height, wrap="word")
         self._text_area.pack(fill="both", expand=True)
     
     def _bind_events(self):
@@ -110,10 +111,12 @@ class LogPanel(ctk.CTkFrame):
         new_height = self._resize_start_height + delta_y
         new_height = max(self.MIN_HEIGHT, min(self.MAX_HEIGHT, new_height))
         
-        self._current_height = new_height
-        
-        if hasattr(self, '_text_area') and self._text_area:
-            self._text_area.configure(height=new_height)
+        if abs(new_height - self._current_height) > 5:
+            self._current_height = new_height
+            
+            if hasattr(self, '_text_area') and self._text_area:
+                self._text_area.configure(height=new_height)
+                self.update_idletasks()
     
     def _on_resize_end(self, event):
         self._resizing = False
@@ -136,9 +139,13 @@ class LogPanel(ctk.CTkFrame):
             self._toggle_btn.configure(text="▼展开")
             self._is_expanded = False
         else:
+            if self._current_height < self.MIN_HEIGHT:
+                self._current_height = self.DEFAULT_HEIGHT
+            
             if not hasattr(self, '_text_area') or not self._text_area:
                 self._create_text_area()
             else:
+                self._text_area.configure(height=self._current_height)
                 self._text_area.pack(fill="both", expand=True)
             self._toggle_btn.configure(text="▲折叠")
             self._is_expanded = True

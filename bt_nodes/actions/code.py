@@ -35,17 +35,20 @@ class CodeNode(ActionNode):
 
         return "python"
 
-    def _build_command(self) -> List[str]:
+    def _build_command(self, code_path: str = None) -> List[str]:
+        if code_path is None:
+            code_path = self.code_path
+        
         code_type = self._detect_code_type()
         
         if code_type == "python":
-            cmd = [sys.executable, self.code_path]
+            cmd = [sys.executable, code_path]
         elif code_type == "batch":
-            cmd = ["cmd", "/c", self.code_path]
+            cmd = ["cmd", "/c", code_path]
         elif code_type == "powershell":
-            cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", self.code_path]
+            cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", code_path]
         else:
-            cmd = [sys.executable, self.code_path]
+            cmd = [sys.executable, code_path]
 
         if self.args:
             cmd.extend([str(arg) for arg in self.args])
@@ -53,28 +56,95 @@ class CodeNode(ActionNode):
         return cmd
 
     def _execute_action(self, context) -> NodeStatus:
+        from bt_utils.log_manager import LogManager, LogLevel
+        
         try:
-            if not os.path.exists(self.code_path):
-                print(f"[WARN] CodeNode: 代码文件不存在: {self.code_path}")
+            code_path = self.code_path
+            
+            if not code_path:
+                LogManager.instance().log_failure(
+                    node_type="代码节点",
+                    node_name=self.name,
+                    reason="代码路径为空"
+                )
+                return NodeStatus.FAILURE
+            
+            absolute_code_path = code_path
+            
+            if code_path.startswith("./"):
+                if hasattr(context, 'resolve_path') and context.resolve_path:
+                    absolute_code_path = context.resolve_path(code_path)
+                elif hasattr(context, 'project_root'):
+                    project_root = context.project_root
+                    absolute_code_path = os.path.join(project_root, code_path[2:])
+                else:
+                    LogManager.instance().log_failure(
+                        node_type="代码节点",
+                        node_name=self.name,
+                        reason="无法解析相对路径，缺少项目根目录"
+                    )
+                    return NodeStatus.FAILURE
+            else:
+                if not os.path.isabs(code_path):
+                    absolute_code_path = os.path.abspath(code_path)
+            
+            if not os.path.exists(absolute_code_path):
+                LogManager.instance().log_failure(
+                    node_type="代码节点",
+                    node_name=self.name,
+                    reason=f"代码文件不存在: {absolute_code_path}"
+                )
                 return NodeStatus.FAILURE
 
-            cmd = self._build_command()
+            cmd = self._build_command(absolute_code_path)
             
             if self.wait_complete:
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    encoding='utf-8',
-                    errors='replace'
-                )
+                import locale
+                
+                preferred_encoding = locale.getpreferredencoding(False)
+                
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        encoding=preferred_encoding,
+                        errors='replace'
+                    )
+                except Exception:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        encoding='utf-8',
+                        errors='replace'
+                    )
                 
                 if result.returncode != 0:
-                    print(f"[WARN] CodeNode执行失败 (返回码: {result.returncode})")
+                    error_msg = f"返回码: {result.returncode}"
                     if result.stderr:
-                        print(f"   错误输出: {result.stderr[:500]}")
+                        error_msg += f", 错误: {result.stderr[:200]}"
+                    
+                    LogManager.instance().log_failure(
+                        node_type="代码节点",
+                        node_name=self.name,
+                        reason=error_msg
+                    )
                     return NodeStatus.FAILURE
                 
+                if result.stdout and result.stdout.strip():
+                    output_lines = result.stdout.strip().split('\n')
+                    for line in output_lines:
+                        LogManager.instance().log_info(
+                            node_type="代码节点",
+                            node_name=self.name,
+                            message=line
+                        )
+                else:
+                    LogManager.instance().log_success(
+                        node_type="代码节点",
+                        node_name=self.name
+                    )
                 return NodeStatus.SUCCESS
             else:
                 self._process = subprocess.Popen(
@@ -82,10 +152,18 @@ class CodeNode(ActionNode):
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
+                LogManager.instance().log_success(
+                    node_type="代码节点",
+                    node_name=self.name
+                )
                 return NodeStatus.SUCCESS
 
         except Exception as e:
-            print(f"[WARN] CodeNode错误: {e}")
+            LogManager.instance().log_failure(
+                node_type="代码节点",
+                node_name=self.name,
+                reason=f"执行异常: {str(e)}"
+            )
             return NodeStatus.FAILURE
 
     def abort(self, context) -> None:

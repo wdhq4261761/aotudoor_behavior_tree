@@ -594,22 +594,40 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             更新后的脚本数据
         """
         if "nodes" in data:
-            for node in data["nodes"]:
-                if "config" in node:
-                    config = node["config"]
-                    
-                    for key, value in list(config.items()):
-                        if isinstance(value, str) and self._is_resource_path(value):
-                            absolute_path = self._resolve_old_path(value, script_dir)
-                            
-                            if absolute_path and os.path.exists(absolute_path):
-                                resource_type = self._detect_resource_type(key, value)
+            if isinstance(data["nodes"], dict):
+                for node_id, node in data["nodes"].items():
+                    if "config" in node:
+                        config = node["config"]
+                        
+                        for key, value in list(config.items()):
+                            if isinstance(value, str) and self._is_resource_path(value):
+                                absolute_path = self._resolve_old_path(value, script_dir)
                                 
-                                try:
-                                    new_relative_path = resource_importer.import_resource(absolute_path, resource_type)
-                                    config[key] = new_relative_path
-                                except Exception as e:
-                                    print(f"导入资源失败 {absolute_path}: {e}")
+                                if absolute_path and os.path.exists(absolute_path):
+                                    resource_type = self._detect_resource_type(key, value)
+                                    
+                                    try:
+                                        new_relative_path = resource_importer.import_resource(absolute_path, resource_type)
+                                        config[key] = new_relative_path
+                                    except Exception as e:
+                                        print(f"导入资源失败 {absolute_path}: {e}")
+            elif isinstance(data["nodes"], list):
+                for node in data["nodes"]:
+                    if "config" in node:
+                        config = node["config"]
+                        
+                        for key, value in list(config.items()):
+                            if isinstance(value, str) and self._is_resource_path(value):
+                                absolute_path = self._resolve_old_path(value, script_dir)
+                                
+                                if absolute_path and os.path.exists(absolute_path):
+                                    resource_type = self._detect_resource_type(key, value)
+                                    
+                                    try:
+                                        new_relative_path = resource_importer.import_resource(absolute_path, resource_type)
+                                        config[key] = new_relative_path
+                                    except Exception as e:
+                                        print(f"导入资源失败 {absolute_path}: {e}")
         
         return data
     
@@ -664,7 +682,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             path: 资源路径
             
         Returns:
-            资源类型
+            资源类型（与ResourceImporter兼容）
         """
         path_lower = path.lower()
         
@@ -672,16 +690,14 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             return 'image'
         elif any(path_lower.endswith(ext) for ext in ['.wav', '.mp3', '.ogg', '.flac']):
             return 'audio'
-        elif any(path_lower.endswith(ext) for ext in ['.py']):
-            return 'python_script'
-        elif any(path_lower.endswith(ext) for ext in ['.bat', '.cmd', '.sh']):
-            return 'batch_script'
+        elif any(path_lower.endswith(ext) for ext in ['.py', '.bat', '.cmd', '.sh', '.ps1']):
+            return 'script'
         else:
             if 'image' in key.lower() or 'template' in key.lower() or 'screenshot' in key.lower():
                 return 'image'
             elif 'sound' in key.lower() or 'audio' in key.lower() or 'alarm' in key.lower():
                 return 'audio'
-            elif 'script' in key.lower():
+            elif 'script' in key.lower() or 'code' in key.lower():
                 return 'script'
             else:
                 return 'data'
@@ -845,7 +861,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
 
         self.canvas.show_all_status_indicators()
         
-        self.context = ExecutionContext()
+        self.context = ExecutionContext(project_root=self.project_root)
         self.context._on_node_status = self._on_node_status
         
         self.engine = BehaviorTreeEngine(root_node)
@@ -905,7 +921,9 @@ class BehaviorTreeEditor(ctk.CTkFrame):
 
     def _on_engine_status_change(self, status: str, node_status: NodeStatus = None):
         if status == "completed":
+            self._play_stop_sound()
             self.toolbar.set_running(False)
+            self.canvas.after(100, self._clear_status_after_stop)
     
     def _set_modified(self, modified: bool):
         self._modified = modified
@@ -1071,9 +1089,22 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     def _on_open_project_dialog(self):
         """显示打开项目对话框"""
         from tkinter import filedialog, messagebox
+        from config.settings_manager import SettingsManager
+        
+        settings_manager = SettingsManager()
+        default_path = settings_manager.get("default_project_path", "")
+        
+        if not default_path or not os.path.exists(default_path):
+            default_path = SettingsManager.get_default_workspace_path()
+            
+            try:
+                os.makedirs(default_path, exist_ok=True)
+            except Exception:
+                default_path = ""
         
         project_root = filedialog.askdirectory(
-            title="选择项目文件夹"
+            title="选择项目文件夹",
+            initialdir=default_path if default_path else None
         )
         
         if project_root:

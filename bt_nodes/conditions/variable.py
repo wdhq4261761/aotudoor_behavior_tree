@@ -93,7 +93,12 @@ class VariableConditionNode(ConditionNode):
 
             return False
         except Exception as e:
-            print(f"[WARN] VariableConditionNode错误: {e}")
+            from bt_utils.log_manager import LogManager
+            LogManager.instance().log_failure(
+                node_type="变量条件节点",
+                node_name=self.name,
+                reason=f"执行错误: {str(e)}"
+            )
             return False
 
     def to_dict(self) -> Dict[str, Any]:

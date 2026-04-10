@@ -231,6 +231,8 @@ class SequenceNode(CompositeNode):
         return self._execute_with_decorators(context, self._tick_internal)
 
     def _tick_internal(self, context: "ExecutionContext") -> NodeStatus:
+        from bt_utils.log_manager import LogManager
+        
         if not self.children:
             return NodeStatus.SUCCESS
 
@@ -261,11 +263,29 @@ class SequenceNode(CompositeNode):
                     continue
                 else:
                     self.current_index = 0
+                    LogManager.instance().log_failure(
+                        node_type="顺序节点",
+                        node_name=self.name,
+                        reason=f"子节点 '{child.name}' 执行失败"
+                    )
                     return NodeStatus.FAILURE
 
             self.current_index += 1
 
         self.current_index = 0
+        
+        if has_failure:
+            LogManager.instance().log_failure(
+                node_type="顺序节点",
+                node_name=self.name,
+                reason="部分子节点执行失败（继续执行模式）"
+            )
+        else:
+            LogManager.instance().log_success(
+                node_type="顺序节点",
+                node_name=self.name
+            )
+        
         return NodeStatus.FAILURE if has_failure else NodeStatus.SUCCESS
 
     def reset(self, reset_counters: bool = True) -> None:
@@ -285,7 +305,14 @@ class SelectorNode(CompositeNode):
         return self._execute_with_decorators(context, self._tick_internal)
 
     def _tick_internal(self, context: "ExecutionContext") -> NodeStatus:
+        from bt_utils.log_manager import LogManager
+        
         if not self.children:
+            LogManager.instance().log_failure(
+                node_type="选择节点",
+                node_name=self.name,
+                reason="没有子节点"
+            )
             return NodeStatus.FAILURE
 
         while self.current_index < len(self.children):
@@ -308,11 +335,20 @@ class SelectorNode(CompositeNode):
 
             if status == NodeStatus.SUCCESS:
                 self.current_index = 0
+                LogManager.instance().log_success(
+                    node_type="选择节点",
+                    node_name=self.name
+                )
                 return NodeStatus.SUCCESS
 
             self.current_index += 1
 
         self.current_index = 0
+        LogManager.instance().log_failure(
+            node_type="选择节点",
+            node_name=self.name,
+            reason="所有子节点都执行失败"
+        )
         return NodeStatus.FAILURE
 
     def reset(self, reset_counters: bool = True) -> None:
