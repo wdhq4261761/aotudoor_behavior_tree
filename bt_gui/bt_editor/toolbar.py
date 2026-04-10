@@ -10,9 +10,10 @@ class EditorToolbar(ctk.CTkFrame):
         self,
         master,
         app,
-        on_new: Optional[Callable] = None,
-        on_load: Optional[Callable] = None,
         on_save: Optional[Callable] = None,
+        on_export: Optional[Callable] = None,
+        on_new_project: Optional[Callable] = None,
+        on_open_project: Optional[Callable] = None,
         on_undo: Optional[Callable] = None,
         on_redo: Optional[Callable] = None,
         on_clear: Optional[Callable] = None,
@@ -23,9 +24,10 @@ class EditorToolbar(ctk.CTkFrame):
     ):
         super().__init__(master, **kwargs)
         self.app = app
-        self.on_new = on_new
-        self.on_load = on_load
         self.on_save = on_save
+        self.on_export = on_export
+        self.on_new_project = on_new_project
+        self.on_open_project = on_open_project
         self.on_undo = on_undo
         self.on_redo = on_redo
         self.on_clear = on_clear
@@ -67,23 +69,23 @@ class EditorToolbar(ctk.CTkFrame):
         
         ctk.CTkButton(
             file_frame,
-            text="新建",
-            width=70,
+            text="新建项目",
+            width=80,
             fg_color=self._dark_colors['bg_tertiary'],
             hover_color=self._dark_colors['border'],
             text_color=self._dark_colors['text_primary'],
-            command=self._on_new_click,
+            command=self._on_new_project_click,
             **btn_config
         ).pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
         
         ctk.CTkButton(
             file_frame,
-            text="打开",
-            width=70,
+            text="打开项目",
+            width=80,
             fg_color=self._dark_colors['bg_tertiary'],
             hover_color=self._dark_colors['border'],
             text_color=self._dark_colors['text_primary'],
-            command=self._on_load_click,
+            command=self._on_open_project_click,
             **btn_config
         ).pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
         
@@ -94,6 +96,17 @@ class EditorToolbar(ctk.CTkFrame):
             fg_color=self._dark_colors['primary'],
             hover_color=self._dark_colors['primary_hover'],
             command=self._on_save_click,
+            **btn_config
+        ).pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
+        
+        ctk.CTkButton(
+            file_frame,
+            text="导出",
+            width=70,
+            fg_color=self._dark_colors['bg_tertiary'],
+            hover_color=self._dark_colors['border'],
+            text_color=self._dark_colors['text_primary'],
+            command=self._on_export_click,
             **btn_config
         ).pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
     
@@ -202,29 +215,21 @@ class EditorToolbar(ctk.CTkFrame):
             command=self._on_reset_view_click
         ).pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
     
-    def _on_new_click(self):
-        if self.on_new:
-            self.on_new()
+    def _on_new_project_click(self):
+        if self.on_new_project:
+            self.on_new_project()
     
-    def _on_load_click(self):
-        import os
-        initial_dir = None
-        if hasattr(self.app, 'behavior_tree') and hasattr(self.app.behavior_tree, 'editor'):
-            editor = self.app.behavior_tree.editor
-            if editor.file_path:
-                initial_dir = os.path.dirname(editor.file_path)
-        
-        file_path = filedialog.askopenfilename(
-            initialdir=initial_dir,
-            title="打开行为树",
-            filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
-        )
-        if file_path and self.on_load:
-            self.on_load(file_path)
+    def _on_open_project_click(self):
+        if self.on_open_project:
+            self.on_open_project()
     
     def _on_save_click(self):
         if self.on_save:
             self.on_save()
+    
+    def _on_export_click(self):
+        if self.on_export:
+            self.on_export()
     
     def _on_undo_click(self):
         if self.on_undo:
@@ -268,5 +273,11 @@ class EditorToolbar(ctk.CTkFrame):
         if file_path:
             import os
             self.file_path_label.configure(text=os.path.basename(file_path))
+        else:
+            self.file_path_label.configure(text="未保存")
+    
+    def set_project_path(self, project_root: Optional[str]):
+        if project_root:
+            self.file_path_label.configure(text=project_root)
         else:
             self.file_path_label.configure(text="未保存")

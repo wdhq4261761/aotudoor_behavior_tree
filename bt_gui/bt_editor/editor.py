@@ -41,6 +41,9 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.context: Optional[ExecutionContext] = None
         self._is_running = False
         
+        self.project_manager = None
+        self.project_root = None
+        
         self._dark_colors = Theme.get_dark_colors()
         self.configure(fg_color=self._dark_colors['bg_primary'], corner_radius=0)
         
@@ -66,9 +69,10 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.toolbar = EditorToolbar(
             self.main_container,
             self.app,
-            on_new=self.new_tree,
-            on_load=self.load_tree,
             on_save=self.save_tree,
+            on_export=self.export_tree,
+            on_new_project=self._on_new_project_dialog,
+            on_open_project=self._on_open_project_dialog,
             on_undo=self.undo,
             on_redo=self.redo,
             on_clear=self.clear_canvas,
@@ -251,13 +255,30 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         
         name = NODE_DISPLAY_NAMES.get(node_type, node_type)
         
+        # 为特定节点类型生成默认配置
+        node_config = {}
+        if node_type == "AlarmNode":
+            from bt_utils.resource_manager import ResourceManager
+            from config.settings_manager import SettingsManager
+            
+            default_sound = ResourceManager().get_alarm_sound_path()
+            default_volume = SettingsManager().get("alarm_volume", 70)
+            
+            node_config = {
+                "sound_path": default_sound,
+                "volume": default_volume,
+                "wait_complete": True,
+                "repeat_count": 0,
+                "interval_ms": 0
+            }
+        
         command = AddNodeCommand(
             canvas=self.canvas,
             node_id=node_id,
             node_type=node_type,
             x=x,
             y=y,
-            node_data={'name': name}
+            node_data={'name': name, 'config': node_config}
         )
         command.description = f"添加{name}"
         
@@ -495,16 +516,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self.command_manager.get_redo_description()
         )
     
-    def new_tree(self):
-        if self._modified:
-            if not messagebox.askyesno("确认", "当前文件未保存，是否继续新建？"):
-                return
-        
-        self.clear_canvas()
-        self.file_path = None
-        self._set_modified(False)
-        self.toolbar.set_file_path(None)
-    
     def load_tree(self, file_path: Optional[str] = None):
         if not file_path:
             from tkinter import filedialog
@@ -524,13 +535,156 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self.canvas.load_tree(data)
             self.file_path = file_path
             self._set_modified(False)
-            self.toolbar.set_file_path(file_path)
+            
+            if self.project_root and os.path.exists(self.project_root):
+                self.toolbar.set_project_path(self.project_root)
+            else:
+                script_dir = os.path.dirname(file_path)
+                project_json_path = os.path.join(script_dir, "project.json")
+                
+                if os.path.exists(project_json_path):
+                    self.project_root = script_dir
+                    self.toolbar.set_project_path(self.project_root)
+                else:
+                    self.toolbar.set_file_path(file_path)
             
             from bt_utils.config_manager import ConfigManager
             ConfigManager.set_last_file_path(file_path)
             
         except Exception as e:
             messagebox.showerror("错误", f"加载文件失败: {str(e)}")
+    
+    def _import_old_script(self, script_path: str):
+        """导入旧脚本及其关联的资源
+        
+        Args:
+            script_path: 旧脚本文件路径
+        """
+        import json
+        import shutil
+        from bt_utils.resource_importer import ResourceImporter
+        
+        try:
+            with open(script_path, 'r', encoding='utf-8') as f:
+                script_data = json.load(f)
+            
+            script_dir = os.path.dirname(script_path)
+            
+            resource_importer = ResourceImporter(self.project_root)
+            
+            updated_data = self._migrate_resources(script_data, script_dir, resource_importer)
+            
+            self.project_manager.save_project(updated_data)
+            
+            self.canvas.load_tree(updated_data)
+            
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("错误", f"导入旧脚本失败: {str(e)}")
+    
+    def _migrate_resources(self, data: dict, script_dir: str, resource_importer) -> dict:
+        """迁移脚本中的资源引用
+        
+        Args:
+            data: 脚本数据
+            script_dir: 脚本所在目录
+            resource_importer: 资源导入器
+            
+        Returns:
+            更新后的脚本数据
+        """
+        if "nodes" in data:
+            for node in data["nodes"]:
+                if "config" in node:
+                    config = node["config"]
+                    
+                    for key, value in list(config.items()):
+                        if isinstance(value, str) and self._is_resource_path(value):
+                            absolute_path = self._resolve_old_path(value, script_dir)
+                            
+                            if absolute_path and os.path.exists(absolute_path):
+                                resource_type = self._detect_resource_type(key, value)
+                                
+                                try:
+                                    new_relative_path = resource_importer.import_resource(absolute_path, resource_type)
+                                    config[key] = new_relative_path
+                                except Exception as e:
+                                    print(f"导入资源失败 {absolute_path}: {e}")
+        
+        return data
+    
+    def _is_resource_path(self, path: str) -> bool:
+        """判断是否为资源路径
+        
+        Args:
+            path: 路径字符串
+            
+        Returns:
+            是否为资源路径
+        """
+        if not path:
+            return False
+        
+        resource_extensions = [
+            '.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff',
+            '.wav', '.mp3', '.ogg', '.flac',
+            '.py', '.bat', '.cmd', '.sh',
+            '.json', '.yaml', '.yml', '.txt', '.csv'
+        ]
+        
+        path_lower = path.lower()
+        return any(path_lower.endswith(ext) for ext in resource_extensions)
+    
+    def _resolve_old_path(self, path: str, script_dir: str) -> str:
+        """解析旧脚本中的资源路径
+        
+        Args:
+            path: 资源路径
+            script_dir: 脚本所在目录
+            
+        Returns:
+            绝对路径
+        """
+        if os.path.isabs(path):
+            return path
+        
+        if path.startswith('./'):
+            relative_path = path[2:]
+        else:
+            relative_path = path
+        
+        absolute_path = os.path.join(script_dir, relative_path)
+        return os.path.normpath(absolute_path)
+    
+    def _detect_resource_type(self, key: str, path: str) -> str:
+        """检测资源类型
+        
+        Args:
+            key: 配置键名
+            path: 资源路径
+            
+        Returns:
+            资源类型
+        """
+        path_lower = path.lower()
+        
+        if any(path_lower.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff']):
+            return 'image'
+        elif any(path_lower.endswith(ext) for ext in ['.wav', '.mp3', '.ogg', '.flac']):
+            return 'audio'
+        elif any(path_lower.endswith(ext) for ext in ['.py']):
+            return 'python_script'
+        elif any(path_lower.endswith(ext) for ext in ['.bat', '.cmd', '.sh']):
+            return 'batch_script'
+        else:
+            if 'image' in key.lower() or 'template' in key.lower() or 'screenshot' in key.lower():
+                return 'image'
+            elif 'sound' in key.lower() or 'audio' in key.lower() or 'alarm' in key.lower():
+                return 'audio'
+            elif 'script' in key.lower():
+                return 'script'
+            else:
+                return 'data'
     
     def save_tree(self, file_path: Optional[str] = None, save_as: bool = False):
         if not file_path:
@@ -562,6 +716,98 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             
         except Exception as e:
             messagebox.showerror("错误", f"保存文件失败: {str(e)}")
+    
+    def export_tree(self):
+        """导出行为树项目为 ZIP 文件"""
+        from tkinter import filedialog, messagebox
+        
+        if not self.file_path:
+            messagebox.showwarning("提示", "请先保存项目")
+            return
+        
+        project_root = None
+        
+        if self.project_root and os.path.exists(self.project_root):
+            project_root = self.project_root
+        else:
+            script_dir = os.path.dirname(self.file_path)
+            project_json_path = os.path.join(script_dir, "project.json")
+            
+            if os.path.exists(project_json_path):
+                project_root = script_dir
+        
+        if not project_root:
+            result = messagebox.askyesno(
+                "提示",
+                "当前脚本不在项目文件夹中。\n\n"
+                "导出功能需要项目文件夹结构。\n\n"
+                "是否要将当前脚本保存为新的项目？\n"
+                "（将创建项目文件夹结构并保存当前行为树）"
+            )
+            
+            if result:
+                self._convert_to_project()
+            return
+        
+        project_name = os.path.basename(project_root)
+        default_filename = f"{project_name}.zip"
+        
+        output_path = filedialog.asksaveasfilename(
+            title="导出项目",
+            initialfile=default_filename,
+            defaultextension=".zip",
+            filetypes=[("ZIP文件", "*.zip"), ("所有文件", "*.*")]
+        )
+        
+        if not output_path:
+            return
+        
+        if not output_path.lower().endswith('.zip'):
+            output_path = output_path + '.zip'
+        
+        try:
+            from bt_utils.package_exporter import PackageExporter
+            exporter = PackageExporter(project_root)
+            zip_path = exporter.export_to_zip(output_path)
+            
+            messagebox.showinfo("成功", f"项目已导出到:\n{zip_path}")
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"导出失败: {str(e)}")
+    
+    def _convert_to_project(self):
+        """将当前脚本转换为项目文件夹"""
+        from tkinter import filedialog, messagebox
+        from bt_gui.dialogs.new_project_dialog import NewProjectDialog
+        
+        dialog = NewProjectDialog(self.app)
+        self.app.wait_window(dialog)
+        
+        if dialog.result:
+            try:
+                name = dialog.result["name"]
+                location = dialog.result["location"]
+                description = dialog.result.get("description", "")
+                
+                self.project_root = os.path.join(location, name)
+                
+                from bt_utils.project_manager import ProjectManager
+                self.project_manager = ProjectManager(self.project_root)
+                self.project_manager.create_project(name, description)
+                
+                tree_data = self.canvas.get_tree_data()
+                self.project_manager.save_project(tree_data)
+                
+                self.file_path = os.path.join(self.project_root, "tree.json")
+                self._update_title(name)
+                self._set_modified(False)
+                
+                self.toolbar.set_project_path(self.project_root)
+                
+                messagebox.showinfo("成功", f"项目 '{name}' 创建成功，当前行为树已保存到项目中")
+                
+            except Exception as e:
+                messagebox.showerror("错误", f"转换项目失败: {str(e)}")
     
     def clear_canvas(self):
         if self.canvas.nodes:
@@ -724,6 +970,122 @@ class BehaviorTreeEditor(ctk.CTkFrame):
                 print("[OK] 已自动恢复上次未保存的会话")
         
         self._crash_recovery_handler.delete_crash_file(crash_info["path"])
+    
+    def new_project(self, name: str, location: str, description: str = "", script_path: str = None):
+        """创建新项目
+        
+        Args:
+            name: 项目名称
+            location: 项目保存位置
+            description: 项目描述
+            script_path: 可选，要导入的旧脚本路径
+        """
+        from bt_utils.project_manager import ProjectManager
+        
+        self.project_root = os.path.join(location, name)
+        self.project_manager = ProjectManager(self.project_root)
+        self.project_manager.create_project(name, description)
+        
+        self.canvas.clear_canvas()
+        
+        if script_path and os.path.exists(script_path):
+            self._import_old_script(script_path)
+        else:
+            tree_data = self.canvas.get_tree_data()
+            self.project_manager.save_project(tree_data)
+        
+        self._update_title(name)
+        
+        self._set_modified(False)
+        self.file_path = os.path.join(self.project_root, "tree.json")
+        
+        self.toolbar.set_project_path(self.project_root)
+    
+    def open_project(self, project_root: str):
+        """打开项目"""
+        from bt_utils.project_manager import ProjectManager
+        
+        self.project_root = project_root
+        self.project_manager = ProjectManager(project_root)
+        
+        if not self.project_manager.validate_project():
+            raise ValueError("项目文件不完整或损坏")
+        
+        config = self.project_manager.load_project()
+        
+        tree_file = os.path.join(project_root, "tree.json")
+        self.load_tree(tree_file)
+        
+        self._update_title(config["project_info"]["name"])
+        
+        self.file_path = tree_file
+        
+        self.toolbar.set_project_path(self.project_root)
+    
+    def save_project(self):
+        """保存项目"""
+        if not self.project_manager:
+            raise RuntimeError("未打开项目")
+        
+        tree_data = self.canvas.get_tree_data()
+        self.project_manager.save_project(tree_data)
+        
+        self._set_modified(False)
+    
+    def export_project(self, output_path: str = None):
+        """导出项目"""
+        if not self.project_manager:
+            raise RuntimeError("未打开项目")
+        
+        from bt_utils.package_exporter import PackageExporter
+        exporter = PackageExporter(self.project_root)
+        return exporter.export_to_zip(output_path)
+    
+    def _on_new_project_dialog(self):
+        """显示新建项目对话框"""
+        from tkinter import filedialog
+        from bt_gui.dialogs.new_project_dialog import NewProjectDialog
+        
+        dialog = NewProjectDialog(self.app)
+        self.app.wait_window(dialog)
+        
+        if dialog.result:
+            try:
+                name = dialog.result["name"]
+                location = dialog.result["location"]
+                description = dialog.result.get("description", "")
+                script_path = dialog.result.get("script_path")
+                
+                self.new_project(name, location, description, script_path)
+                
+                from tkinter import messagebox
+                if script_path:
+                    messagebox.showinfo("成功", f"项目 '{name}' 创建成功\n已导入旧脚本及其资源")
+                else:
+                    messagebox.showinfo("成功", f"项目 '{name}' 创建成功")
+                
+            except Exception as e:
+                from tkinter import messagebox
+                messagebox.showerror("错误", f"创建项目失败: {str(e)}")
+    
+    def _on_open_project_dialog(self):
+        """显示打开项目对话框"""
+        from tkinter import filedialog, messagebox
+        
+        project_root = filedialog.askdirectory(
+            title="选择项目文件夹"
+        )
+        
+        if project_root:
+            try:
+                self.open_project(project_root)
+                messagebox.showinfo("成功", "项目打开成功")
+            except Exception as e:
+                messagebox.showerror("错误", f"打开项目失败: {str(e)}")
+    
+    def _update_title(self, project_name: str):
+        """更新窗口标题"""
+        self.winfo_toplevel().title(f"AutoDoor 行为树编辑器 - {project_name}")
     
     def destroy(self):
         if self._autosave_manager:

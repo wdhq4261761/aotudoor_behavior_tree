@@ -1,4 +1,5 @@
 from typing import Any, Callable, Optional
+import os
 import time
 
 from .blackboard import Blackboard
@@ -14,12 +15,14 @@ class ExecutionContext:
         blackboard: 黑板系统实例
         elapsed_time: 已执行时间（秒）
         tick_count: tick执行次数
+        project_root: 项目根目录
     """
 
-    def __init__(self):
+    def __init__(self, project_root: str = None):
         self.blackboard = Blackboard()
         self.elapsed_time: float = 0.0
         self.tick_count: int = 0
+        self.project_root = project_root or os.getcwd()
         self._is_running = True
         self._is_paused = False
         self._on_node_status: Optional[Callable] = None
@@ -27,6 +30,7 @@ class ExecutionContext:
         self._input_controller = None
         self._ocr_manager = None
         self._alarm_player = None
+        self._path_resolver = None
     
     def check_running(self) -> bool:
         if self._is_paused:
@@ -146,3 +150,20 @@ class ExecutionContext:
             self._ocr_manager = OCRManager()
 
         return self._ocr_manager.recognize(image, keywords, language)
+    
+    def resolve_path(self, relative_path: str) -> str:
+        """解析相对路径为绝对路径
+        
+        Args:
+            relative_path: 相对路径（以 ./ 开头）
+        
+        Returns:
+            绝对路径
+        """
+        if self._path_resolver is None:
+            from bt_utils.path_resolver import PathResolver
+            self._path_resolver = PathResolver(self.project_root)
+        
+        if relative_path.startswith("./"):
+            return self._path_resolver.to_absolute(relative_path)
+        return relative_path

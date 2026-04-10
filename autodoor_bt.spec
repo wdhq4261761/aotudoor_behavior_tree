@@ -13,7 +13,7 @@ def get_version():
     version_file = os.path.join(project_root, 'main.py')
     with open(version_file, 'r', encoding='utf-8') as f:
         content = f.read()
-        match = re.search(r'VERSION\s*=\s*["\']([^"\']+)["\']', content)
+        match = re.search(r'VERSION\s*=\s*["\']v?([0-9]+\.[0-9]+\.[0-9]+)["\']', content)
         if match:
             return match.group(1)
     return "0.0.0"

@@ -11,13 +11,26 @@ class AlarmNode(ActionNode):
 
     def __init__(self, node_id: str = None, config: NodeConfig = None):
         super().__init__(node_id, config)
-        self.sound_path = self.config.get("sound_path", "")
-        self.volume = self.config.get_int("volume", 70)
+        
+        from bt_utils.resource_manager import ResourceManager
+        from config.settings_manager import SettingsManager
+        
+        default_sound = ResourceManager().get_alarm_sound_path()
+        default_volume = SettingsManager().get("alarm_volume", 70)
+        
+        self.sound_path = self.config.get("sound_path", default_sound)
+        self.volume = self.config.get_int("volume", default_volume)
         self.wait_complete = self.config.get_bool("wait_complete", True)
         self.repeat_count = self.config.get_int("repeat_count", 0)
         self.interval_ms = self.config.get_int("interval_ms", 0)
         self._abort_flag = False
         self._current_repeat = 0
+        
+        if "sound_path" not in self.config.extra:
+            self.config.set("sound_path", default_sound)
+        
+        if "volume" not in self.config.extra:
+            self.config.set("volume", default_volume)
 
     def _execute_action(self, context) -> NodeStatus:
         try:

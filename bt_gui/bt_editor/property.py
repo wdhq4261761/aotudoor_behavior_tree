@@ -81,7 +81,7 @@ NODE_CONFIG_SCHEMAS = {
         {"key": "value", "label": "值", "type": "text"},
     ],
     "ScriptNode": [
-        {"key": "script_path", "label": "脚本路径", "type": "file", "width": 120, "filetypes": [("脚本文件", "*.txt"), ("所有文件", "*.*")]},
+        {"key": "script_path", "label": "脚本路径", "type": "file", "width": 120, "filetypes": [("所有文件", "*.*")]},
         {"key": "loop", "label": "循环执行", "type": "bool"},
     ],
     "CodeNode": [
@@ -359,7 +359,7 @@ class RegionField(FieldWidget):
         try:
             import screeninfo
             
-            self.app.root.iconify()
+            self.app.iconify()
             
             time.sleep(0.2)
             
@@ -369,7 +369,7 @@ class RegionField(FieldWidget):
             max_x = max(monitor.x + monitor.width for monitor in monitors)
             max_y = max(monitor.y + monitor.height for monitor in monitors)
             
-            select_window = tk.Toplevel(self.app.root)
+            select_window = tk.Toplevel(self.app)
             select_window.geometry(f"{max_x - min_x}x{max_y - min_y}+{min_x}+{min_y}")
             select_window.overrideredirect(True)
             select_window.attributes("-alpha", 0.3)
@@ -409,7 +409,7 @@ class RegionField(FieldWidget):
                 if abs(end_x_abs - start_x_abs[0]) < 10 or abs(end_y_abs - start_y_abs[0]) < 10:
                     messagebox.showwarning("警告", "选择的区域太小，请重新选择")
                     select_window.destroy()
-                    self.app.root.deiconify()
+                    self.app.deiconify()
                     return
                 
                 region = (
@@ -423,11 +423,11 @@ class RegionField(FieldWidget):
                 self.on_change(self.key, list(region))
                 
                 select_window.destroy()
-                self.app.root.deiconify()
+                self.app.deiconify()
             
             def on_escape(e):
                 select_window.destroy()
-                self.app.root.deiconify()
+                self.app.deiconify()
             
             canvas.bind("<Button-1>", on_mouse_down)
             canvas.bind("<B1-Motion>", on_mouse_drag)
@@ -436,10 +436,10 @@ class RegionField(FieldWidget):
             select_window.focus_set()
             
         except ImportError:
-            self.app.root.deiconify()
+            self.app.deiconify()
             messagebox.showerror("错误", "screeninfo库未安装，无法支持区域选择。\n请运行 'pip install screeninfo' 安装该库。")
         except Exception as e:
-            self.app.root.deiconify()
+            self.app.deiconify()
             messagebox.showerror("错误", f"区域选择失败: {str(e)}")
     
     def set_value(self, value: Any):
@@ -635,7 +635,7 @@ class ScreenshotField(FieldWidget):
             
         except Exception as e:
             if self.app:
-                self.app.root.deiconify()
+                self.app.deiconify()
             messagebox.showerror("错误", f"截图失败: {str(e)}")
     
     def _start_screenshot_selection(self):
@@ -643,7 +643,7 @@ class ScreenshotField(FieldWidget):
         try:
             import screeninfo
             
-            self.app.root.iconify()
+            self.app.iconify()
             
             time.sleep(0.2)
             
@@ -653,7 +653,7 @@ class ScreenshotField(FieldWidget):
             max_x = max(monitor.x + monitor.width for monitor in monitors)
             max_y = max(monitor.y + monitor.height for monitor in monitors)
             
-            select_window = tk.Toplevel(self.app.root)
+            select_window = tk.Toplevel(self.app)
             select_window.geometry(f"{max_x - min_x}x{max_y - min_y}+{min_x}+{min_y}")
             select_window.overrideredirect(True)
             select_window.attributes("-alpha", 0.3)
@@ -691,7 +691,7 @@ class ScreenshotField(FieldWidget):
                 end_y_abs = event.y_root
                 
                 select_window.destroy()
-                self.app.root.deiconify()
+                self.app.deiconify()
                 
                 if abs(end_x_abs - start_x_abs[0]) < 10 or abs(end_y_abs - start_y_abs[0]) < 10:
                     messagebox.showwarning("警告", "选择的区域太小，请重新选择")
@@ -709,7 +709,7 @@ class ScreenshotField(FieldWidget):
             
             def on_escape(e):
                 select_window.destroy()
-                self.app.root.deiconify()
+                self.app.deiconify()
             
             canvas.bind("<Button-1>", on_mouse_down)
             canvas.bind("<B1-Motion>", on_mouse_drag)
@@ -718,10 +718,10 @@ class ScreenshotField(FieldWidget):
             select_window.focus_set()
             
         except ImportError:
-            self.app.root.deiconify()
+            self.app.deiconify()
             messagebox.showerror("错误", "screeninfo库未安装，无法支持多显示器选择。\n请运行 'pip install screeninfo' 安装该库。")
         except Exception as e:
-            self.app.root.deiconify()
+            self.app.deiconify()
             messagebox.showerror("错误", f"区域选择失败: {str(e)}")
     
     def _save_screenshot(self, region):
@@ -736,7 +736,7 @@ class ScreenshotField(FieldWidget):
             if not os.path.exists(image_dir):
                 os.makedirs(image_dir)
             
-            self.app.root.update()
+            self.app.update()
             time.sleep(0.1)
             
             from bt_utils.screenshot import ScreenshotManager
@@ -947,7 +947,7 @@ class PositionField(FieldWidget):
         try:
             import screeninfo
             
-            self.app.root.iconify()
+            self.app.iconify()
             
             time.sleep(0.2)
             
@@ -957,7 +957,7 @@ class PositionField(FieldWidget):
             max_x = max(monitor.x + monitor.width for monitor in monitors)
             max_y = max(monitor.y + monitor.height for monitor in monitors)
             
-            select_window = tk.Toplevel(self.app.root)
+            select_window = tk.Toplevel(self.app)
             select_window.geometry(f"{max_x - min_x}x{max_y - min_y}+{min_x}+{min_y}")
             select_window.overrideredirect(True)
             select_window.attributes("-alpha", 0.2)
@@ -978,21 +978,21 @@ class PositionField(FieldWidget):
                 self.var.set(f"{x}, {y}")
                 self.on_change(self.key, [x, y])
                 select_window.destroy()
-                self.app.root.deiconify()
+                self.app.deiconify()
             
             def on_escape(e):
                 select_window.destroy()
-                self.app.root.deiconify()
+                self.app.deiconify()
             
             select_window.bind("<Button-1>", on_click)
             select_window.bind("<Escape>", on_escape)
             select_window.focus_set()
             
         except ImportError:
-            self.app.root.deiconify()
+            self.app.deiconify()
             messagebox.showerror("错误", "screeninfo库未安装，无法支持位置选择。\n请运行 'pip install screeninfo' 安装该库。")
         except Exception as e:
-            self.app.root.deiconify()
+            self.app.deiconify()
             messagebox.showerror("错误", f"位置选择失败: {str(e)}")
     
     def set_value(self, value: Any):
