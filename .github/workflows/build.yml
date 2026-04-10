@@ -80,7 +80,7 @@ jobs:
 
     - name: Verify build output
       run: |
-        $VERSION = (Select-String -Path "main.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
+        $VERSION = (Select-String -Path "main.py" -Pattern 'VERSION\s*=\s*"v?([0-9]+\.[0-9]+\.[0-9]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
         $EXE_NAME = "autodoor-behaviortree-$VERSION-normal.exe"
         $DIR_NAME = "autodoor-behaviortree-$VERSION-normal"
         
@@ -160,7 +160,7 @@ jobs:
 
     - name: Verify build output
       run: |
-        $VERSION = (Select-String -Path "main.py" -Pattern 'VERSION\s*=\s*"([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
+        $VERSION = (Select-String -Path "main.py" -Pattern 'VERSION\s*=\s*"v?([0-9]+\.[0-9]+\.[0-9]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
         $EXE_NAME = "autodoor-behaviortree-$VERSION-game.exe"
         $DIR_NAME = "autodoor-behaviortree-$VERSION-game"
         
