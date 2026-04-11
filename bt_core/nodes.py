@@ -90,6 +90,12 @@ class Node(ABC):
         if status == NodeStatus.SUCCESS and repeat_count != 0:
             if repeat_count == -1 or self._repeat_count < repeat_count:
                 self._repeat_count += 1
+                
+                repeat_interval_ms = self.config.repeat_interval_ms
+                if repeat_interval_ms > 0:
+                    import time
+                    time.sleep(repeat_interval_ms / 1000)
+                
                 self._reset_for_repeat()
                 if isinstance(self, CompositeNode):
                     LogManager.instance().log_info(
@@ -624,15 +630,13 @@ class StartNode(SequenceNode):
     特性:
     - 继承SequenceNode的顺序执行逻辑
     - 失败后继续执行(不短路)
-    - 支持重复执行次数控制
+    - 支持装饰器参数(重复次数、重复间隔、超时等)
     - 不可删除、不可复制、不可剪切
     """
     NODE_TYPE = "StartNode"
     
     def __init__(self, node_id: str = None, config: NodeConfig = None):
         super().__init__(node_id, config)
-        self.repeat_count = self.config.get_int("repeat_count", -1)  # -1表示无限循环
-        self._current_repeat = 0  # 当前重复次数
         self._is_protected = True  # 不可删除标记
     
     def tick(self, context: "ExecutionContext") -> NodeStatus:
@@ -668,20 +672,9 @@ class StartNode(SequenceNode):
         if has_running:
             return NodeStatus.RUNNING
         
-        # 所有子节点执行完毕,处理重复逻辑
-        self._current_repeat += 1
-        
-        if self.repeat_count == -1:
-            # 无限循环模式
-            self.reset()
-            return NodeStatus.RUNNING
-        elif self._current_repeat < self.repeat_count:
-            # 继续重复
-            self.reset()
-            return NodeStatus.RUNNING
-        else:
-            # 达到重复次数,执行完成
-            return NodeStatus.SUCCESS
+        # 所有子节点执行完毕,返回SUCCESS
+        # 重复执行逻辑由Node基类的装饰器参数处理
+        return NodeStatus.SUCCESS
     
     def reset(self, reset_counters: bool = True) -> None:
         """重置节点状态"""
@@ -698,7 +691,6 @@ class StartNode(SequenceNode):
             Dict[str, Any]: 节点数据字典
         """
         data = super().to_dict()
-        data["repeat_count"] = self.repeat_count
         data["_is_protected"] = self._is_protected
         return data
     
@@ -714,6 +706,5 @@ class StartNode(SequenceNode):
             StartNode: 节点实例
         """
         node = super().from_dict(data)
-        node.repeat_count = data.get("repeat_count", -1)
         node._is_protected = data.get("_is_protected", True)
         return node

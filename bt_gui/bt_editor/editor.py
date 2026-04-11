@@ -1091,7 +1091,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             x=x,
             y=y,
             name="开始",
-            config={"repeat_count": -1},
             enabled=True
         )
         

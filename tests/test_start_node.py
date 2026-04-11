@@ -14,21 +14,7 @@ class TestStartNode(unittest.TestCase):
         """测试创建开始节点"""
         node = StartNode()
         self.assertEqual(node.NODE_TYPE, "StartNode")
-        self.assertEqual(node.repeat_count, -1)
         self.assertTrue(node.is_protected())
-    
-    def test_repeat_count_default(self):
-        """测试默认重复次数为-1(无限循环)"""
-        node = StartNode()
-        self.assertEqual(node.repeat_count, -1)
-    
-    def test_repeat_count_custom(self):
-        """测试自定义重复次数"""
-        from bt_core.config import NodeConfig
-        config = NodeConfig()
-        config.extra["repeat_count"] = 5
-        node = StartNode(config=config)
-        self.assertEqual(node.repeat_count, 5)
     
     def test_tick_no_children(self):
         """测试无子节点时返回SUCCESS"""
@@ -69,8 +55,8 @@ class TestStartNode(unittest.TestCase):
         
         context = ExecutionContext()
         status = node.tick(context)
-        # 所有子节点执行完毕后应该返回RUNNING(因为默认无限循环)
-        self.assertEqual(status, NodeStatus.RUNNING)
+        # 所有子节点执行完毕后应该返回SUCCESS
+        self.assertEqual(status, NodeStatus.SUCCESS)
 
 
 if __name__ == '__main__':

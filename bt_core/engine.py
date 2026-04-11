@@ -22,7 +22,7 @@ class BehaviorTreeEngine:
         self._running = False
         self._paused = False
         self._thread: Optional[threading.Thread] = None
-        self._tick_interval = 0.05
+        self._tick_interval = 0.01
         self._on_status_change: Optional[Callable] = None
         self._on_node_status: Optional[Callable] = None
         self._lock = threading.Lock()
@@ -89,10 +89,16 @@ class BehaviorTreeEngine:
             self._running = False
             self._paused = False
 
+            if self.context:
+                self.context._is_running = False
+
             if self.root_node and self.context:
                 self.root_node.abort(self.context)
             elif self.root_node:
                 self.root_node.reset()
+
+            from bt_nodes.actions.script import ScriptNode
+            ScriptNode.clear_executor_pool()
 
             if self._on_status_change:
                 self._on_status_change("stopped")

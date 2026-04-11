@@ -12,6 +12,7 @@ class NodeConfig:
         enabled: 是否启用
         retry_count: 重试次数（-1表示无限）
         repeat_count: 重复次数（-1表示无限）
+        repeat_interval_ms: 重复间隔（毫秒）
         timeout_ms: 超时时间（毫秒）
         extra: 扩展配置字典
     """
@@ -20,6 +21,7 @@ class NodeConfig:
     enabled: bool = True
     retry_count: int = 0
     repeat_count: int = 0
+    repeat_interval_ms: int = 100
     timeout_ms: int = 0
     extra: Dict[str, Any] = field(default_factory=dict)
 
@@ -56,6 +58,7 @@ class NodeConfig:
             "enabled": self.enabled,
             "retry_count": self.retry_count,
             "repeat_count": self.repeat_count,
+            "repeat_interval_ms": self.repeat_interval_ms,
             "timeout_ms": self.timeout_ms,
             "extra": self.extra,
         }
@@ -72,7 +75,7 @@ class NodeConfig:
         """
         known_keys = {
             "name", "description", "enabled", 
-            "retry_count", "repeat_count", "timeout_ms", "extra"
+            "retry_count", "repeat_count", "repeat_interval_ms", "timeout_ms", "extra"
         }
         
         extra = data.get("extra", {})
@@ -108,6 +111,7 @@ class NodeConfig:
             enabled=to_bool(data.get("enabled", True)),
             retry_count=to_int(data.get("retry_count", 0)),
             repeat_count=to_int(data.get("repeat_count", 0)),
+            repeat_interval_ms=to_int(data.get("repeat_interval_ms", 100)),
             timeout_ms=to_int(data.get("timeout_ms", 0)),
             extra=extra,
         )

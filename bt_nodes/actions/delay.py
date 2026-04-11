@@ -11,16 +11,16 @@ class DelayNode(ActionNode):
     def __init__(self, node_id: str = None, config: NodeConfig = None):
         super().__init__(node_id, config)
         self.duration_ms = self.config.get_int("duration_ms", 1000)
-        self._start_time = None
+        self._delay_start_time = None
 
     def _execute_action(self, context) -> NodeStatus:
-        if self._start_time is None:
-            self._start_time = time.time()
+        if self._delay_start_time is None:
+            self._delay_start_time = time.time()
 
-        elapsed = (time.time() - self._start_time) * 1000
+        elapsed = (time.time() - self._delay_start_time) * 1000
 
         if elapsed >= self.duration_ms:
-            self._start_time = None
+            self._delay_start_time = None
             LogManager.instance().log_success(
                 node_type="延时节点",
                 node_name=self.name
@@ -31,12 +31,12 @@ class DelayNode(ActionNode):
 
     
     def abort(self, context) -> None:
-        self._start_time = None
+        self._delay_start_time = None
         super().abort(context)
 
     def reset(self) -> None:
         super().reset()
-        self._start_time = None
+        self._delay_start_time = None
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()

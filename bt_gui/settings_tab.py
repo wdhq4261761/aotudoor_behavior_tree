@@ -343,7 +343,8 @@ class SettingsTab(ctk.CTkFrame):
             if hasattr(self.app, 'behavior_tree') and hasattr(self.app.behavior_tree, 'update_run_shortcuts'):
                 start_key = self.start_shortcut_var.get()
                 stop_key = self.stop_shortcut_var.get()
-                self.app.behavior_tree.update_run_shortcuts(start_key, stop_key)
+                record_key = self.record_hotkey_var.get()
+                self.app.behavior_tree.update_run_shortcuts(start_key, stop_key, record_key)
         except Exception:
             pass
     

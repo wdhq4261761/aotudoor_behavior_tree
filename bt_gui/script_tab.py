@@ -619,6 +619,13 @@ class ScriptTab(ctk.CTkFrame):
         self._stop_listeners()
         self._play_stop_sound()
     
+    def toggle_recording(self):
+        """切换录制状态（供全局热键调用）"""
+        if self._is_recording:
+            self._stop_recording()
+        else:
+            self._start_recording()
+    
     def _stop_listeners(self):
         if self._keyboard_listener:
             try:

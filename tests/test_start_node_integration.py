@@ -24,16 +24,13 @@ class TestStartNodeIntegration(unittest.TestCase):
     def test_start_node_serialization(self):
         """测试开始节点序列化"""
         node = StartNode()
-        node.repeat_count = 5
         
         # 序列化
         data = node.to_dict()
-        self.assertEqual(data["repeat_count"], 5)
         self.assertTrue(data["_is_protected"])
         
         # 反序列化
         new_node = StartNode.from_dict(data)
-        self.assertEqual(new_node.repeat_count, 5)
         self.assertTrue(new_node.is_protected())
     
     def test_start_node_with_multiple_children(self):
@@ -51,7 +48,7 @@ class TestStartNodeIntegration(unittest.TestCase):
         
         context = ExecutionContext()
         status = node.tick(context)
-        self.assertEqual(status, NodeStatus.RUNNING)  # 默认无限循环
+        self.assertEqual(status, NodeStatus.SUCCESS)
     
     def test_start_node_failure_continue(self):
         """测试开始节点失败后继续执行"""
@@ -78,48 +75,10 @@ class TestStartNodeIntegration(unittest.TestCase):
         # 所有子节点都应该被执行
         self.assertEqual(execution_order, ["first", "second", "third"])
     
-    def test_start_node_repeat_count(self):
-        """测试开始节点重复次数控制"""
-        execution_count = [0]
-        
-        class CountAction(ActionNode):
-            def _execute_action(self, context):
-                execution_count[0] += 1
-                return NodeStatus.SUCCESS
-        
-        node = StartNode()
-        node.repeat_count = 3
-        node.add_child(CountAction())
-        
-        context = ExecutionContext()
-        
-        # 执行3次后应该返回SUCCESS
-        for i in range(3):
-            status = node.tick(context)
-            if i < 2:
-                self.assertEqual(status, NodeStatus.RUNNING)
-            else:
-                self.assertEqual(status, NodeStatus.SUCCESS)
-        
-        # 验证执行了3次
-        self.assertEqual(execution_count[0], 3)
-    
     def test_start_node_registered(self):
         """测试StartNode已注册到注册中心"""
         node_class = NodeRegistry.get("StartNode")
         self.assertEqual(node_class, StartNode)
-    
-    def test_create_start_node_from_registry(self):
-        """测试通过注册中心创建StartNode"""
-        data = {
-            "type": "StartNode",
-            "id": "test_start",
-            "name": "开始",
-            "repeat_count": 5
-        }
-        node = NodeRegistry.create_node(data)
-        self.assertIsInstance(node, StartNode)
-        self.assertEqual(node.repeat_count, 5)
 
 
 if __name__ == '__main__':
