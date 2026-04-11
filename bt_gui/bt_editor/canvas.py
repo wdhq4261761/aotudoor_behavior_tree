@@ -658,6 +658,14 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         self._redraw_connections()
     
     def clear_canvas(self):
+        # 保存开始节点
+        start_node = None
+        for node_id, node_item in list(self.nodes.items()):
+            if hasattr(node_item, 'node') and node_item.node and node_item.node.is_protected():
+                start_node = node_item
+                break
+        
+        # 清空画布
         self.canvas.delete("all")
         self.nodes.clear()
         self.connections.clear()
@@ -668,6 +676,11 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         self._dragging = False
         self._drag_node = None
         self._drag_start = (0, 0)
+        
+        # 恢复开始节点
+        if start_node:
+            self.nodes[start_node.node_id] = start_node
+            start_node.redraw()
         self._drag_start_pos = (0, 0)
         self._panning = False
         self._pan_start = (0, 0)
