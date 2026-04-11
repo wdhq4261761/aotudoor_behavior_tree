@@ -8,6 +8,7 @@ class PackageExporter:
     
     EXCLUDE_DIRS = ['.metadata', '__pycache__', '.git', 'node_modules']
     EXCLUDE_EXTENSIONS = ['.pyc', '.pyo', '.tmp', '.bak', '.log']
+    EXCLUDE_FILES = ['tree_backup_', 'screenshot_', '.DS_Store', 'Thumbs.db']
     
     def __init__(self, project_root: str):
         self.project_root = project_root
@@ -45,7 +46,14 @@ class PackageExporter:
     def _should_exclude_file(self, filename: str) -> bool:
         """检查文件是否应被排除"""
         ext = os.path.splitext(filename)[1].lower()
-        return ext in self.EXCLUDE_EXTENSIONS
+        if ext in self.EXCLUDE_EXTENSIONS:
+            return True
+        
+        for exclude_prefix in self.EXCLUDE_FILES:
+            if filename.startswith(exclude_prefix):
+                return True
+        
+        return False
     
     def _generate_readme(self, zip_path: str):
         """生成使用说明"""

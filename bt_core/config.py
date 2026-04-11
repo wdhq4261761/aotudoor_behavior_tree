@@ -5,7 +5,7 @@ from typing import Dict, Any
 @dataclass
 class NodeConfig:
     """节点配置数据类
-
+    
     Args:
         name: 节点名称
         description: 节点描述
@@ -14,7 +14,6 @@ class NodeConfig:
         repeat_count: 重复次数（-1表示无限）
         repeat_interval_ms: 重复间隔（毫秒）
         timeout_ms: 超时时间（毫秒）
-        extra: 扩展配置字典
     """
     name: str = ""
     description: str = ""
@@ -23,32 +22,32 @@ class NodeConfig:
     repeat_count: int = 0
     repeat_interval_ms: int = 100
     timeout_ms: int = 0
-    extra: Dict[str, Any] = field(default_factory=dict)
-
+    
     def get(self, key: str, default: Any = None) -> Any:
-        """获取扩展配置值
-
+        """获取配置值
+        
         Args:
             key: 配置键
             default: 默认值
-
+            
         Returns:
             配置值
         """
-        return self.extra.get(key, default)
-
+        return getattr(self, key, default)
+    
     def set(self, key: str, value: Any) -> None:
-        """设置扩展配置值
-
+        """设置配置值
+        
         Args:
             key: 配置键
             value: 配置值
         """
-        self.extra[key] = value
-
+        if hasattr(self, key):
+            setattr(self, key, value)
+    
     def to_dict(self) -> Dict[str, Any]:
         """序列化为字典
-
+        
         Returns:
             字典表示
         """
@@ -60,30 +59,18 @@ class NodeConfig:
             "repeat_count": self.repeat_count,
             "repeat_interval_ms": self.repeat_interval_ms,
             "timeout_ms": self.timeout_ms,
-            "extra": self.extra,
         }
-
+    
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "NodeConfig":
         """从字典反序列化
-
+        
         Args:
             data: 字典数据
-
+            
         Returns:
             NodeConfig 实例
         """
-        known_keys = {
-            "name", "description", "enabled", 
-            "retry_count", "repeat_count", "repeat_interval_ms", "timeout_ms", "extra"
-        }
-        
-        extra = data.get("extra", {})
-        
-        for key, value in data.items():
-            if key not in known_keys:
-                extra[key] = value
-        
         def to_int(value, default=0):
             if value is None:
                 return default
@@ -113,20 +100,19 @@ class NodeConfig:
             repeat_count=to_int(data.get("repeat_count", 0)),
             repeat_interval_ms=to_int(data.get("repeat_interval_ms", 100)),
             timeout_ms=to_int(data.get("timeout_ms", 0)),
-            extra=extra,
         )
     
     def get_int(self, key: str, default: int = 0) -> int:
-        """获取整数类型的扩展配置值
-
+        """获取整数类型的配置值
+        
         Args:
             key: 配置键
             default: 默认值
-
+            
         Returns:
             整数配置值
         """
-        value = self.extra.get(key, default)
+        value = getattr(self, key, default)
         if value is None:
             return default
         if isinstance(value, int):
@@ -139,16 +125,16 @@ class NodeConfig:
         return default
     
     def get_bool(self, key: str, default: bool = False) -> bool:
-        """获取布尔类型的扩展配置值
-
+        """获取布尔类型的配置值
+        
         Args:
             key: 配置键
             default: 默认值
-
+            
         Returns:
             布尔配置值
         """
-        value = self.extra.get(key, default)
+        value = getattr(self, key, default)
         if value is None:
             return default
         if isinstance(value, bool):
@@ -158,16 +144,16 @@ class NodeConfig:
         return bool(value)
     
     def get_float(self, key: str, default: float = 0.0) -> float:
-        """获取浮点类型的扩展配置值
-
+        """获取浮点类型的配置值
+        
         Args:
             key: 配置键
             default: 默认值
-
+            
         Returns:
             浮点配置值
         """
-        value = self.extra.get(key, default)
+        value = getattr(self, key, default)
         if value is None:
             return default
         if isinstance(value, (int, float)):

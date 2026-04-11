@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, StringVar, END
 from typing import Optional, Callable
 
 from ..theme import Theme
@@ -20,6 +20,7 @@ class EditorToolbar(ctk.CTkFrame):
         on_reset_view: Optional[Callable] = None,
         on_start: Optional[Callable] = None,
         on_stop: Optional[Callable] = None,
+        on_open_folder: Optional[Callable] = None,
         **kwargs
     ):
         super().__init__(master, **kwargs)
@@ -34,6 +35,7 @@ class EditorToolbar(ctk.CTkFrame):
         self.on_reset_view = on_reset_view
         self.on_start = on_start
         self.on_stop = on_stop
+        self.on_open_folder = on_open_folder
         self.is_running = False
         
         self._dark_colors = Theme.get_dark_colors()
@@ -50,12 +52,15 @@ class EditorToolbar(ctk.CTkFrame):
         self._create_file_buttons(left_section)
         self._create_separator(left_section)
         self._create_edit_buttons(left_section)
+        self._create_separator(left_section)
+        self._create_run_buttons(left_section)
+        self._create_path_display(left_section)
         
         right_section = ctk.CTkFrame(main_container, fg_color="transparent")
         right_section.pack(side="right")
         
-        self._create_run_buttons(right_section)
-        self._create_status_section(right_section)
+        self._create_open_folder_button(right_section)
+        self._create_reset_view_button(right_section)
     
     def _create_file_buttons(self, parent):
         file_frame = ctk.CTkFrame(parent, fg_color="transparent")
@@ -190,13 +195,15 @@ class EditorToolbar(ctk.CTkFrame):
         )
         self.stop_btn.pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
     
-    def _create_status_section(self, parent):
-        status_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        status_frame.pack(side="left")
+    def _create_path_display(self, parent):
+        path_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        path_frame.pack(side="left")
+        
+        self.file_path_var = StringVar(value="未保存")
         
         self.file_path_entry = ctk.CTkEntry(
-            status_frame,
-            textvariable=tk.StringVar(value="未保存"),
+            path_frame,
+            textvariable=self.file_path_var,
             font=Theme.get_font('sm'),
             text_color=self._dark_colors['text_muted'],
             fg_color=self._dark_colors['bg_secondary'],
@@ -205,10 +212,25 @@ class EditorToolbar(ctk.CTkFrame):
             height=Theme.DIMENSIONS['button_height'],
             state="readonly"
         )
-        self.file_path_entry.pack(side="left", padx=(0, Theme.DIMENSIONS['spacing_md']))
-        
+        self.file_path_entry.pack(side="left", padx=(Theme.DIMENSIONS['spacing_md'], 0))
+    
+    def _create_open_folder_button(self, parent):
+        self.open_folder_btn = ctk.CTkButton(
+            parent,
+            text="打开文件",
+            width=80,
+            font=Theme.get_font('sm'),
+            height=Theme.DIMENSIONS['button_height'],
+            corner_radius=Theme.DIMENSIONS['button_corner_radius'],
+            fg_color=self._dark_colors['info'],
+            hover_color=self._dark_colors['info_hover'],
+            command=self._on_open_folder_click
+        )
+        self.open_folder_btn.pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
+    
+    def _create_reset_view_button(self, parent):
         ctk.CTkButton(
-            status_frame,
+            parent,
             text="重置视图",
             width=80,
             font=Theme.get_font('sm'),
@@ -252,6 +274,10 @@ class EditorToolbar(ctk.CTkFrame):
         if self.on_reset_view:
             self.on_reset_view()
     
+    def _on_open_folder_click(self):
+        if self.on_open_folder:
+            self.on_open_folder()
+    
     def _on_start_click(self):
         if self.on_start:
             self.on_start()
@@ -277,26 +303,20 @@ class EditorToolbar(ctk.CTkFrame):
     def set_file_path(self, file_path: Optional[str]):
         if file_path:
             import os
-            self.file_path_entry.delete(0, tk.END)
-            self.file_path_entry.insert(0, os.path.basename(file_path))
+            self.file_path_var.set(os.path.basename(file_path))
         else:
-            self.file_path_entry.delete(0, tk.END)
-            self.file_path_entry.insert(0, "未保存")
+            self.file_path_var.set("未保存")
     
     def set_project_path(self, project_root: Optional[str]):
         if project_root:
-            # 固定长度显示,左侧省略
             max_length = 30
             if len(project_root) > max_length:
                 display_text = "..." + project_root[-(max_length-3):]
             else:
                 display_text = project_root
             
-            self.file_path_entry.delete(0, tk.END)
-            self.file_path_entry.insert(0, display_text)
-            # 保存完整路径到tooltip
+            self.file_path_var.set(display_text)
             self.file_path_entry.tooltip = project_root
         else:
-            self.file_path_entry.delete(0, tk.END)
-            self.file_path_entry.insert(0, "未保存")
+            self.file_path_var.set("未保存")
             self.file_path_entry.tooltip = None

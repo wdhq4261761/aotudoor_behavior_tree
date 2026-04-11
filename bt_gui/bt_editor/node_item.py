@@ -49,6 +49,7 @@ class NodeItem:
         self._zoom = zoom
         self._pan_x = pan_x
         self._pan_y = pan_y
+        self._protected = (node_type == "StartNode")
         
         self._status = NodeExecutionStatus.IDLE
         self._selected = False
@@ -89,6 +90,9 @@ class NodeItem:
             if self.config is None:
                 self.config = {}
             self.config[key] = value
+    
+    def is_protected(self) -> bool:
+        return self._protected
     
     def _create_visuals(self):
         shadow_offset = 3

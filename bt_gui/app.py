@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from typing import Optional
 import os
+from tkinter import messagebox
 
 from .theme import Theme, init_theme
 from .bt_editor import BehaviorTreeEditor
@@ -167,7 +168,21 @@ class BehaviorTreeApp(ctk.CTk):
             file_path = self.behavior_tree.file_path
             if file_path:
                 self._settings.set_last_file_path(file_path)
+            
+            if hasattr(self.behavior_tree, '_modified') and self.behavior_tree._modified:
+                result = messagebox.askyesnocancel(
+                    "未保存的改动",
+                    "当前项目有未保存的改动。\n\n是否保存？"
+                )
+                
+                if result is None:
+                    return
+                elif result:
+                    self.behavior_tree.save_tree()
+            
             self.behavior_tree.destroy()
+        
+        self._settings.save_settings()
         self.destroy()
 
 

@@ -41,12 +41,14 @@ class SessionConfig:
     last_file_path: str = ""
     recent_files: List[str] = field(default_factory=list)
     window_geometry: str = "1280x800"
+    last_export_path: str = ""
     
     def to_dict(self) -> Dict[str, Any]:
         return {
             "last_file_path": self.last_file_path,
             "recent_files": self.recent_files[:10],
             "window_geometry": self.window_geometry,
+            "last_export_path": self.last_export_path,
         }
     
     @classmethod
@@ -55,6 +57,7 @@ class SessionConfig:
             last_file_path=data.get("last_file_path", ""),
             recent_files=data.get("recent_files", [])[:10],
             window_geometry=data.get("window_geometry", "1280x800"),
+            last_export_path=data.get("last_export_path", ""),
         )
 
 
@@ -103,7 +106,8 @@ class SettingsManager:
         "session": {
             "last_file_path": "",
             "recent_files": [],
-            "window_geometry": "1280x800"
+            "window_geometry": "1280x800",
+            "last_export_path": ""
         },
         "blackboard": {
             "default_position_key": "last_detection_position",
@@ -385,6 +389,14 @@ class SettingsManager:
     def clear_recent_files(self) -> None:
         """清空最近文件列表"""
         self.set("session.recent_files", [])
+    
+    def get_last_export_path(self) -> str:
+        """获取上次导出路径"""
+        return self.get("session.last_export_path", "")
+    
+    def set_last_export_path(self, export_path: str) -> None:
+        """设置上次导出路径"""
+        self.set("session.last_export_path", export_path)
     
     def get_all_settings(self) -> Dict[str, Any]:
         """获取所有设置"""

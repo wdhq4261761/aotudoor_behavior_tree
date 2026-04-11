@@ -131,6 +131,11 @@ class AutoSaveManager:
         data["metadata"]["modified_at"] = datetime.now().isoformat()
         data["metadata"]["save_type"] = "auto"
         
+        if self._get_file_path_func:
+            file_path = self._get_file_path_func()
+            if file_path:
+                data["metadata"]["file_path"] = file_path
+        
     def _rotate_and_save(self, data: Dict[str, Any]) -> None:
         autosave_3 = self._autosave_dir / "autosave_3.json.gz"
         autosave_2 = self._autosave_dir / "autosave_2.json.gz"

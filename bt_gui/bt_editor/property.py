@@ -1,4 +1,5 @@
 from typing import Any, Callable, Dict, Optional, List
+import os
 
 import customtkinter as ctk
 import tkinter as tk
@@ -17,7 +18,7 @@ NODE_CONFIG_SCHEMAS = {
     ],
     "ImageConditionNode": [
         {"key": "region", "label": "检测区域", "type": "region"},
-        {"key": "template_path", "label": "模板路径", "type": "screenshot", "width": 120, "filetypes": [("图像文件", "*.png;*.jpg;*.jpeg;*.bmp"), ("所有文件", "*.*")]},
+        {"key": "template_path", "label": "模板路径", "type": "screenshot", "width": 120, "filetypes": [("图像文件", "*.png *.jpg *.jpeg *.bmp"), ("所有文件", "*.*")]},
         {"key": "threshold", "label": "匹配阈值(%)", "type": "number", "min": 0, "max": 100, "default": 80},
         {"key": "position_key", "label": "位置变量名", "type": "text", "default": "last_detection_position"},
     ],
@@ -81,15 +82,15 @@ NODE_CONFIG_SCHEMAS = {
         {"key": "value", "label": "值", "type": "text"},
     ],
     "ScriptNode": [
-        {"key": "script_path", "label": "脚本路径", "type": "file", "width": 120, "filetypes": ["所有文件", "*.*"]},
+        {"key": "script_path", "label": "脚本路径", "type": "file", "width": 120, "filetypes": [("所有文件", "*.*")]},
         {"key": "loop", "label": "循环执行", "type": "bool", "default": False},
     ],
     "CodeNode": [
-        {"key": "code_path", "label": "代码路径", "type": "file", "width": 120, "filetypes": ["所有文件", "*.*"]},
+        {"key": "code_path", "label": "代码路径", "type": "file", "width": 120, "filetypes": [("所有文件", "*.*")]},
         {"key": "code_type", "label": "代码类型", "type": "select", "options": ["auto", "python", "batch", "powershell"], "default": "auto"},
     ],
     "AlarmNode": [
-        {"key": "sound_path", "label": "音频文件", "type": "file", "width": 120, "filetypes": ["所有文件", "*.*"]},
+        {"key": "sound_path", "label": "音频文件", "type": "file", "width": 120, "filetypes": [("所有文件", "*.*")]},
         {"key": "volume", "label": "音量(0-100,空用全局)", "type": "number", "min": 0, "max": 100, "default": 70},
         {"key": "interval_ms", "label": "播放间隔(ms)", "type": "number", "min": 0, "default": 0},
         {"key": "wait_complete", "label": "等待播放完成", "type": "bool", "default": True},
@@ -499,15 +500,47 @@ class FileField(FieldWidget):
         )
         self.btn.pack(side="right")
     
+    def _get_project_root(self):
+        if self.app and hasattr(self.app, 'behavior_tree'):
+            editor = self.app.behavior_tree
+            if hasattr(editor, 'project_root') and editor.project_root:
+                return editor.project_root
+        return None
+    
+    def _get_editor(self):
+        if self.app and hasattr(self.app, 'behavior_tree'):
+            return self.app.behavior_tree
+        return None
+    
+    def _prompt_create_project(self):
+        from tkinter import messagebox
+        result = messagebox.askyesno(
+            "提示",
+            "请先创建或打开项目，才能导入资源文件。\n\n是否现在创建新项目？"
+        )
+        if result:
+            editor = self._get_editor()
+            if editor and hasattr(editor, '_on_new_project_dialog'):
+                editor._on_new_project_dialog()
+        return result
+    
     def _browse(self):
-        import os
+        project_root = self._get_project_root()
+        
+        if not project_root:
+            self._prompt_create_project()
+            return
+        
         initial_dir = None
         if self.full_path:
-            initial_dir = os.path.dirname(self.full_path)
-        elif self.app and hasattr(self.app, 'behavior_tree') and hasattr(self.app.behavior_tree, 'editor'):
-            editor = self.app.behavior_tree.editor
-            if editor.file_path:
-                initial_dir = os.path.dirname(editor.file_path)
+            abs_full_path = self.full_path
+            if self.full_path.startswith("./"):
+                abs_full_path = os.path.normpath(os.path.join(project_root, self.full_path[2:]))
+            if os.path.exists(abs_full_path):
+                initial_dir = os.path.dirname(abs_full_path)
+        else:
+            if os.path.exists(project_root):
+                initial_dir = project_root
         
         file_path = filedialog.askopenfilename(
             initialdir=initial_dir,
@@ -515,7 +548,25 @@ class FileField(FieldWidget):
             filetypes=self.filetypes
         )
         
-        if file_path:
+        if not file_path:
+            return
+        
+        from bt_utils.resource_service import ResourceService
+        
+        old_path = self.full_path if self.full_path else None
+        
+        relative_path = ResourceService.import_single_file_to_project(
+            file_path,
+            project_root,
+            old_path=old_path
+        )
+        
+        if relative_path:
+            self.full_path = relative_path
+            filename = relative_path.split("/")[-1]
+            self.var.set(filename)
+            self.on_change(self.key, relative_path)
+        else:
             self.full_path = file_path
             filename = file_path.split("/")[-1].split("\\")[-1]
             self.var.set(filename)
@@ -595,14 +646,31 @@ class ScreenshotField(FieldWidget):
         self.screenshot_btn.pack(side="left")
     
     def _browse(self):
-        import os
+        project_root = self._get_project_root()
+        
+        if not project_root:
+            from tkinter import messagebox
+            result = messagebox.askyesno(
+                "提示",
+                "请先创建或打开项目，才能导入资源文件。\n\n是否现在创建新项目？"
+            )
+            if result:
+                if self.app and hasattr(self.app, 'behavior_tree'):
+                    editor = self.app.behavior_tree
+                    if hasattr(editor, '_on_new_project_dialog'):
+                        editor._on_new_project_dialog()
+            return
+        
         initial_dir = None
         if self.full_path:
-            initial_dir = os.path.dirname(self.full_path)
-        elif self.app and hasattr(self.app, 'behavior_tree') and hasattr(self.app.behavior_tree, 'editor'):
-            editor = self.app.behavior_tree.editor
-            if editor.file_path:
-                initial_dir = os.path.dirname(editor.file_path)
+            abs_full_path = self.full_path
+            if self.full_path.startswith("./"):
+                abs_full_path = os.path.normpath(os.path.join(project_root, self.full_path[2:]))
+            if os.path.exists(abs_full_path):
+                initial_dir = os.path.dirname(abs_full_path)
+        else:
+            if os.path.exists(project_root):
+                initial_dir = project_root
         
         file_path = filedialog.askopenfilename(
             initialdir=initial_dir,
@@ -610,7 +678,25 @@ class ScreenshotField(FieldWidget):
             filetypes=self.filetypes
         )
         
-        if file_path:
+        if not file_path:
+            return
+        
+        from bt_utils.resource_service import ResourceService
+        
+        old_path = self.full_path if self.full_path else None
+        
+        relative_path = ResourceService.import_single_file_to_project(
+            file_path,
+            project_root,
+            old_path=old_path
+        )
+        
+        if relative_path:
+            self.full_path = relative_path
+            filename = relative_path.split("/")[-1]
+            self.var.set(filename)
+            self.on_change(self.key, relative_path)
+        else:
             self.full_path = file_path
             filename = file_path.split("/")[-1].split("\\")[-1]
             self.var.set(filename)
@@ -626,8 +712,13 @@ class ScreenshotField(FieldWidget):
                 messagebox.showerror("错误", "应用实例未初始化")
                 return
             
-            app_dir = self._get_app_dir()
-            image_dir = os.path.join(app_dir, "image")
+            app_dir = self._get_project_root()
+            if not app_dir:
+                self.app.deiconify()
+                messagebox.showerror("错误", "请先保存项目，再进行截图操作")
+                return
+            
+            image_dir = os.path.join(app_dir, "images", "templates")
             
             if not os.path.exists(image_dir):
                 os.makedirs(image_dir)
@@ -693,9 +784,9 @@ class ScreenshotField(FieldWidget):
                 end_y_abs = event.y_root
                 
                 select_window.destroy()
-                self.app.deiconify()
                 
                 if abs(end_x_abs - start_x_abs[0]) < 10 or abs(end_y_abs - start_y_abs[0]) < 10:
+                    self.app.deiconify()
                     messagebox.showwarning("警告", "选择的区域太小，请重新选择")
                     return
                 
@@ -732,17 +823,23 @@ class ScreenshotField(FieldWidget):
         from tkinter import messagebox
         
         try:
-            app_dir = self._get_app_dir()
-            image_dir = os.path.join(app_dir, "image")
+            project_root = self._get_project_root()
+            if not project_root:
+                self.app.deiconify()
+                messagebox.showerror("错误", "请先保存项目，再进行截图操作")
+                return
+            
+            image_dir = os.path.join(project_root, "images", "templates")
             
             if not os.path.exists(image_dir):
                 os.makedirs(image_dir)
             
-            self.app.update()
-            time.sleep(0.1)
+            time.sleep(0.2)
             
             from bt_utils.screenshot import ScreenshotManager
             screenshot = ScreenshotManager().get_region_screenshot(region)
+            
+            self.app.deiconify()
             
             if not screenshot:
                 messagebox.showerror("错误", "无法获取截图区域")
@@ -754,23 +851,50 @@ class ScreenshotField(FieldWidget):
             
             screenshot.save(save_path)
             
-            self.full_path = save_path
-            self.var.set(filename)
-            self.on_change(self.key, save_path)
+            from bt_utils.path_resolver import PathResolver
+            resolver = PathResolver(project_root)
+            relative_path = resolver.to_relative(save_path)
             
-            messagebox.showinfo("成功", f"截图已保存到:\n{save_path}")
+            self.full_path = relative_path
+            self.var.set(filename)
+            self.on_change(self.key, relative_path)
+            
+            messagebox.showinfo("成功", f"截图已保存到:\n{relative_path}")
             
         except Exception as e:
+            self.app.deiconify()
             messagebox.showerror("错误", f"保存截图失败: {str(e)}")
     
-    def _get_app_dir(self):
+    def _get_project_root(self):
         import os
-        if self.app and hasattr(self.app, 'behavior_tree') and hasattr(self.app.behavior_tree, 'editor'):
-            editor = self.app.behavior_tree.editor
-            if editor.file_path:
-                return os.path.dirname(editor.file_path)
+        if self.app and hasattr(self.app, 'behavior_tree'):
+            editor = self.app.behavior_tree
+            if hasattr(editor, 'project_root') and editor.project_root:
+                return editor.project_root
+            
+            if hasattr(editor, 'file_path') and editor.file_path:
+                project_root = self._find_project_root(editor.file_path)
+                if project_root:
+                    return project_root
         
-        return os.getcwd()
+        return None
+    
+    def _find_project_root(self, file_path: str):
+        """向上查找项目根目录"""
+        import os
+        current_dir = os.path.dirname(file_path)
+        
+        while current_dir:
+            project_json_path = os.path.join(current_dir, "project.json")
+            if os.path.exists(project_json_path):
+                return current_dir
+            
+            parent_dir = os.path.dirname(current_dir)
+            if parent_dir == current_dir:
+                break
+            current_dir = parent_dir
+        
+        return None
     
     def set_value(self, value: Any):
         if value:
@@ -1266,9 +1390,7 @@ class PropertyPanel(ctk.CTkFrame):
                 decorator_fields = CONDITION_DECORATOR_FIELDS
             elif node_type in ACTION_NODES:
                 decorator_fields = ACTION_DECORATOR_FIELDS
-            elif node_type in COMPOSITE_NODES or decorator_fields == COMPOSITE_DECORATOR_FIELDS:
-                pass
-            elif node_type == "StartNode":
+            elif node_type in COMPOSITE_NODES or node_type == "StartNode":
                 decorator_fields = COMPOSITE_DECORATOR_FIELDS
             
             if decorator_fields:

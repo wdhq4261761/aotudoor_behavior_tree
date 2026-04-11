@@ -657,13 +657,13 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
             node.redraw()
         self._redraw_connections()
     
-    def clear_canvas(self):
-        # 保存开始节点
+    def clear_canvas(self, force: bool = False):
         start_node = None
-        for node_id, node_item in list(self.nodes.items()):
-            if hasattr(node_item, 'node') and node_item.node and node_item.node.is_protected():
-                start_node = node_item
-                break
+        if not force:
+            for node_id, node_item in list(self.nodes.items()):
+                if node_item.is_protected():
+                    start_node = node_item
+                    break
         
         # 清空画布
         self.canvas.delete("all")
@@ -915,12 +915,14 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         nodes_data = {}
         
         for node_id, node in self.nodes.items():
+            node_config = node.config if hasattr(node, 'config') else {}
+            
             nodes_data[node_id] = {
                 "id": node_id,
                 "type": node.node_type,
                 "name": getattr(node, 'name', ''),
                 "enabled": getattr(node, 'enabled', True),
-                "config": getattr(node, 'config', {}),
+                "config": node_config,
                 "position": {
                     "x": node.x,
                     "y": node.y
@@ -969,8 +971,7 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         for node_id in list(self.selected_nodes):
             if node_id in self.nodes:
                 node_item = self.nodes[node_id]
-                # 检查节点是否受保护
-                if hasattr(node_item, 'node') and node_item.node and node_item.node.is_protected():
+                if node_item.is_protected():
                     protected_nodes.append(node_id)
                     continue
                 nodes_to_delete.append(node_id)
@@ -989,14 +990,12 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         
         import copy
         
-        # 过滤掉受保护的节点
         nodes_to_copy = []
         for node_id in self.selected_nodes:
             if node_id not in self.nodes:
                 continue
             node_item = self.nodes[node_id]
-            # 检查节点是否受保护
-            if hasattr(node_item, 'node') and node_item.node and node_item.node.is_protected():
+            if node_item.is_protected():
                 continue
             nodes_to_copy.append(node_id)
         

@@ -2,6 +2,8 @@ import customtkinter as ctk
 from tkinter import messagebox
 import json
 import os
+import platform
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 from copy import deepcopy
 
@@ -26,10 +28,25 @@ from bt_utils.crash_recovery import CrashRecoveryHandler
 from bt_utils.global_hotkey import GlobalHotkeyManager
 
 
+from bt_utils.global_hotkey import GlobalHotkeyManager
+
+
+def _get_user_data_dir() -> Path:
+    """获取平台适用的用户数据目录"""
+    if platform.system() == "Windows":
+        base = Path(os.environ.get("APPDATA", os.path.expanduser("~")))
+    else:
+        base = Path.home()
+    
+    data_dir = base / "autodoor_behavior_tree" / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
 class BehaviorTreeEditor(ctk.CTkFrame):
     AUTOSAVE_INTERVAL = 60000
-    BACKUP_DIR = os.path.join(os.path.dirname(__file__), "backup")
-    RECOVERY_DIR = os.path.join(os.path.dirname(__file__), "recovery")
+    BACKUP_DIR = str(_get_user_data_dir() / "backup")
+    RECOVERY_DIR = str(_get_user_data_dir() / "recovery")
 
     def __init__(self, master, app, **kwargs):
         super().__init__(master, **kwargs)
@@ -52,7 +69,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self._clipboard_data = None
         
         self._autosave_manager: Optional[AutoSaveManager] = None
-        self._init_autosave()
         
         self._hotkey_manager = GlobalHotkeyManager.get_instance()
         
@@ -78,10 +94,11 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             on_open_project=self._on_open_project_dialog,
             on_undo=self.undo,
             on_redo=self.redo,
-            on_clear=self.clear_canvas,
+            on_clear=lambda: self.clear_canvas(confirm=True),
             on_reset_view=self.reset_view,
             on_start=self._start_running,
-            on_stop=self._stop_running
+            on_stop=self._stop_running,
+            on_open_folder=self._open_project_folder
         )
         self.toolbar.pack(fill="x")
     
@@ -241,6 +258,10 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self._node_counter += 1
         node_id = f"node_{self._node_counter}"
         
+        while node_id in self.canvas.nodes:
+            self._node_counter += 1
+            node_id = f"node_{self._node_counter}"
+        
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
         
@@ -294,11 +315,13 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     def _on_node_select(self, node_id: str, node_type: str):
         node = self.canvas.nodes.get(node_id)
         if node:
+            node_config = node.config if hasattr(node, 'config') else {}
+            
             node_data = {
                 "id": node_id,
                 "type": node_type,
                 "name": node.name,
-                "config": node.config,
+                "config": node_config,
                 "enabled": node.enabled
             }
             self.property_panel.load_node(node_id, node_type, node_data)
@@ -345,33 +368,75 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             return
         
         node = self.canvas.nodes[node_id]
+        
+        if node.config is None:
+            node.config = {}
+        
+        node.config[key] = value
+        
         if key in ["name", "enabled"]:
             setattr(node, key, value)
             if key == "name":
                 self.canvas.redraw_node(node_id)
-        else:
-            if node.config is None:
-                node.config = {}
-            node.config[key] = value
+        
         self._set_modified(True)
     
     def _delete_selected(self):
         if self.canvas.selected_nodes:
-            self._delete_nodes(self.canvas.selected_nodes)
+            nodes_to_delete = []
+            protected_nodes = []
+            
+            for node_id in self.canvas.selected_nodes:
+                node_item = self.canvas.nodes.get(node_id)
+                if node_item and node_item.is_protected():
+                    protected_nodes.append(node_id)
+                    continue
+                nodes_to_delete.append(node_id)
+            
+            if protected_nodes:
+                messagebox.showwarning("无法删除", "开始节点不可删除")
+            
+            if nodes_to_delete:
+                self._delete_nodes(nodes_to_delete)
         elif self.canvas.selected_node:
+            node_item = self.canvas.nodes.get(self.canvas.selected_node)
+            if node_item and node_item.is_protected():
+                messagebox.showwarning("无法删除", "开始节点不可删除")
+                return
             self._delete_node(self.canvas.selected_node)
         elif self.canvas.selected_connection:
             self.canvas.remove_selected_connection()
             self._set_modified(True)
     
     def _delete_node(self, node_id: str):
+        node_item = self.canvas.nodes.get(node_id)
+        if node_item and node_item.is_protected():
+            messagebox.showwarning("无法删除", "开始节点不可删除")
+            return
+        
         command = RemoveNodeCommand(canvas=self.canvas, node_id=node_id)
         self.command_manager.execute(command)
         self._update_toolbar()
         self._set_modified(True)
     
     def _delete_nodes(self, node_ids: List[str]):
-        command = RemoveNodesCommand(canvas=self.canvas, node_ids=list(node_ids))
+        nodes_to_delete = []
+        protected_nodes = []
+        
+        for node_id in node_ids:
+            node_item = self.canvas.nodes.get(node_id)
+            if node_item and node_item.is_protected():
+                protected_nodes.append(node_id)
+                continue
+            nodes_to_delete.append(node_id)
+        
+        if protected_nodes:
+            messagebox.showwarning("无法删除", "开始节点不可删除")
+        
+        if not nodes_to_delete:
+            return
+        
+        command = RemoveNodesCommand(canvas=self.canvas, node_ids=nodes_to_delete)
         self.command_manager.execute(command)
         self._update_toolbar()
         self._set_modified(True)
@@ -403,6 +468,10 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self._node_counter += 1
             new_id = f"node_{self._node_counter}"
             
+            while new_id in self.canvas.nodes:
+                self._node_counter += 1
+                new_id = f"node_{self._node_counter}"
+            
             rel_x, rel_y = relative_positions.get(node_data['id'], (0, 0))
             
             command = AddNodeCommand(
@@ -431,6 +500,11 @@ class BehaviorTreeEditor(ctk.CTkFrame):
                 old_id = node_data['id']
                 self._node_counter += 1
                 new_id = f"node_{self._node_counter}"
+                
+                while new_id in self.canvas.nodes:
+                    self._node_counter += 1
+                    new_id = f"node_{self._node_counter}"
+                
                 id_map[old_id] = new_id
                 
                 rel_x, rel_y = relative_positions.get(old_id, (0, 0))
@@ -505,7 +579,10 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         if self.command_manager.can_undo():
             self.command_manager.undo()
             self._update_toolbar()
-            self._set_modified(True)
+            if not self.command_manager.can_undo():
+                self._set_modified(False)
+            else:
+                self._set_modified(True)
     
     def redo(self):
         if self.command_manager.can_redo():
@@ -520,6 +597,20 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self.command_manager.get_undo_description(),
             self.command_manager.get_redo_description()
         )
+    
+    def new_tree(self):
+        """新建行为树项目"""
+        if self._modified:
+            result = messagebox.askyesnocancel(
+                "未保存的改动",
+                "当前项目有未保存的改动。\n\n是否保存？"
+            )
+            if result is None:
+                return
+            elif result:
+                self.save_tree()
+        
+        self._on_new_project_dialog()
     
     def load_tree(self, file_path: Optional[str] = None):
         if not file_path:
@@ -541,28 +632,46 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self.file_path = file_path
             self._set_modified(False)
             
-            if self.project_root and os.path.exists(self.project_root):
+            project_root = self._find_project_root(file_path)
+            
+            if project_root:
+                self.project_root = project_root
+                from bt_utils.project_manager import ProjectManager
+                self.project_manager = ProjectManager(self.project_root)
                 self.toolbar.set_project_path(self.project_root)
-                if not self.project_manager:
-                    from bt_utils.project_manager import ProjectManager
-                    self.project_manager = ProjectManager(self.project_root)
             else:
-                script_dir = os.path.dirname(file_path)
-                project_json_path = os.path.join(script_dir, "project.json")
-                
-                if os.path.exists(project_json_path):
-                    self.project_root = script_dir
-                    from bt_utils.project_manager import ProjectManager
-                    self.project_manager = ProjectManager(self.project_root)
-                    self.toolbar.set_project_path(self.project_root)
-                else:
-                    self.toolbar.set_file_path(file_path)
+                self.project_root = None
+                self.project_manager = None
+                self.toolbar.set_file_path(file_path)
             
             from config.settings_manager import SettingsManager
             SettingsManager.get_instance().set_last_file_path(file_path)
             
         except Exception as e:
             messagebox.showerror("错误", f"加载文件失败: {str(e)}")
+    
+    def _find_project_root(self, file_path: str) -> Optional[str]:
+        """向上查找项目根目录
+        
+        Args:
+            file_path: 当前文件路径
+            
+        Returns:
+            项目根目录路径，如果未找到则返回 None
+        """
+        current_dir = os.path.dirname(file_path)
+        
+        while current_dir:
+            project_json_path = os.path.join(current_dir, "project.json")
+            if os.path.exists(project_json_path):
+                return current_dir
+            
+            parent_dir = os.path.dirname(current_dir)
+            if parent_dir == current_dir:
+                break
+            current_dir = parent_dir
+        
+        return None
     
     def _import_old_script(self, script_path: str):
         """导入旧脚本及其关联的资源
@@ -715,7 +824,25 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     def save_tree(self, file_path: Optional[str] = None, save_as: bool = False):
         if self.project_root and self.project_manager and not save_as:
             tree_data = self.canvas.get_tree_data()
+            
+            from bt_utils.resource_service import ResourceService
+            external_resources = ResourceService.collect_external_resources(tree_data, self.project_root)
+            
+            if external_resources:
+                path_mapping = ResourceService.import_resources_to_project(
+                    external_resources, 
+                    self.project_root
+                )
+                
+                if path_mapping:
+                    tree_data = ResourceService.update_tree_paths(tree_data, path_mapping)
+                    self.canvas.load_tree(tree_data)
+                    print(f"[INFO] 已导入 {len(external_resources)} 个外部资源到项目目录")
+            
             self.project_manager.save_project(tree_data)
+            
+            if self._autosave_manager:
+                self._autosave_manager.clear_autosaves()
             
             if self.file_path:
                 from config.settings_manager import SettingsManager
@@ -771,6 +898,9 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self._set_modified(False)
             self.toolbar.set_file_path(file_path)
             
+            if self._autosave_manager:
+                self._autosave_manager.clear_autosaves()
+            
             from config.settings_manager import SettingsManager
             SettingsManager.get_instance().set_last_file_path(file_path)
             
@@ -809,11 +939,47 @@ class BehaviorTreeEditor(ctk.CTkFrame):
                 self._convert_to_project()
             return
         
+        tree_data = self.canvas.get_tree_data()
+        
+        from bt_utils.resource_service import ResourceService
+        
+        external_resources = ResourceService.collect_external_resources(tree_data, project_root)
+        
+        if external_resources:
+            path_mapping = ResourceService.import_resources_to_project(
+                external_resources, 
+                project_root
+            )
+            
+            if path_mapping:
+                tree_data = ResourceService.update_tree_paths(tree_data, path_mapping)
+                self.canvas.load_tree(tree_data)
+                print(f"[INFO] 已导入 {len(external_resources)} 个外部资源到项目目录")
+        
+        if self.project_manager:
+            self.project_manager.save_project(tree_data)
+        else:
+            tree_path = os.path.join(project_root, "tree.json")
+            with open(tree_path, 'w', encoding='utf-8') as f:
+                json.dump(tree_data, f, ensure_ascii=False, indent=2)
+        
         project_name = os.path.basename(project_root)
         default_filename = f"{project_name}.zip"
         
+        from config.settings_manager import SettingsManager
+        settings = SettingsManager.get_instance()
+        
+        initial_dir = None
+        last_export_path = settings.get_last_export_path()
+        
+        if last_export_path and os.path.exists(os.path.dirname(last_export_path)):
+            initial_dir = os.path.dirname(last_export_path)
+        elif project_root:
+            initial_dir = os.path.dirname(project_root)
+        
         output_path = filedialog.asksaveasfilename(
             title="导出项目",
+            initialdir=initial_dir,
             initialfile=default_filename,
             defaultextension=".zip",
             filetypes=[("ZIP文件", "*.zip"), ("所有文件", "*.*")]
@@ -829,6 +995,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             from bt_utils.package_exporter import PackageExporter
             exporter = PackageExporter(project_root)
             zip_path = exporter.export_to_zip(output_path)
+            
+            settings.set_last_export_path(output_path)
             
             messagebox.showinfo("成功", f"项目已导出到:\n{zip_path}")
             
@@ -869,8 +1037,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             except Exception as e:
                 messagebox.showerror("错误", f"转换项目失败: {str(e)}")
     
-    def clear_canvas(self):
-        if self.canvas.nodes:
+    def clear_canvas(self, confirm: bool = False):
+        if confirm and self.canvas.nodes:
             if not messagebox.askyesno("确认", "确定要清空画布吗？"):
                 return
         
@@ -881,6 +1049,41 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     
     def reset_view(self):
         self.canvas.reset_view()
+    
+    def _open_project_folder(self):
+        """打开项目文件夹"""
+        import platform
+        
+        folder_path = None
+        
+        if self.project_root:
+            if os.path.exists(self.project_root):
+                folder_path = self.project_root
+            else:
+                self.project_root = None
+        
+        if not folder_path and self.file_path:
+            if os.path.exists(self.file_path):
+                folder_path = os.path.dirname(self.file_path)
+            else:
+                self.file_path = None
+        
+        if not folder_path:
+            messagebox.showwarning("提示", "请先保存项目")
+            return
+        
+        try:
+            folder_path = os.path.abspath(folder_path)
+            if platform.system() == "Windows":
+                os.startfile(folder_path)
+            elif platform.system() == "Darwin":
+                import subprocess
+                subprocess.run(["open", folder_path])
+            else:
+                import subprocess
+                subprocess.run(["xdg-open", folder_path])
+        except Exception as e:
+            messagebox.showerror("错误", f"无法打开文件夹: {str(e)}")
     
     def _start_running(self):
         if self._is_running:
@@ -987,6 +1190,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     
     def _set_modified(self, modified: bool):
         self._modified = modified
+        if modified:
+            self.on_content_changed()
     
     def get_tree_data(self) -> Dict[str, Any]:
         return self.canvas.get_tree_data()
@@ -1025,6 +1230,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         if not hasattr(self, '_crash_recovery_handler'):
             return
         
+        self._crash_recovery_handler.cleanup_old_crash_files(keep_days=7)
+        
         if not self._crash_recovery_handler.has_crash_recovery():
             return
         
@@ -1045,6 +1252,22 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             if data:
                 self.canvas.load_tree(data)
                 self._set_modified(True)
+                
+                metadata = data.get("metadata", {})
+                saved_file_path = metadata.get("file_path")
+                if saved_file_path and os.path.exists(saved_file_path):
+                    self.file_path = saved_file_path
+                    project_root = self._find_project_root(saved_file_path)
+                    if project_root:
+                        self.project_root = project_root
+                        from bt_utils.project_manager import ProjectManager
+                        self.project_manager = ProjectManager(self.project_root)
+                        self.toolbar.set_project_path(self.project_root)
+                    else:
+                        self.toolbar.set_file_path(saved_file_path)
+                else:
+                    self.toolbar.set_file_path(None)
+                
                 print("[OK] 已自动恢复上次未保存的会话")
         
         self._crash_recovery_handler.delete_crash_file(crash_info["path"])
@@ -1064,14 +1287,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.project_manager = ProjectManager(self.project_root)
         self.project_manager.create_project(name, description)
         
-        self.canvas.clear_canvas()
+        self.canvas.clear_canvas(force=True)
         
-        # 自动创建开始节点
-        from bt_core.nodes import StartNode
-        start_node = StartNode()
-        start_node.config.name = "开始"
-        
-        # 计算默认位置
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
         
@@ -1080,17 +1297,16 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         if canvas_height <= 0:
             canvas_height = 600
         
-        # 左右居中,上下偏顶部(预留20%空间)
         x = canvas_width / 2
         y = canvas_height * 0.2
         
-        # 添加到画布
         self.canvas.add_node(
-            node_id=start_node.node_id,
+            node_id="start_node",
             node_type="StartNode",
             x=x,
             y=y,
             name="开始",
+            config={},
             enabled=True
         )
         

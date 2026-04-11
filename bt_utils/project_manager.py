@@ -27,10 +27,11 @@ class ProjectManager:
         dirs = [
             "images/templates",
             "images/screenshots",
-            "scripts/python",
-            "scripts/batch",
+            "scripts/script",
+            "scripts/code",
             "audio/alarms",
             "data/config",
+            "cache",
             "docs"
         ]
         

@@ -54,7 +54,8 @@ class ResourceImporter:
         """获取目标存储目录"""
         type_dir_map = {
             'image': 'images/templates',
-            'script': 'scripts/python',
+            'script': 'scripts/script',
+            'code': 'scripts/code',
             'audio': 'audio/alarms',
             'data': 'data/config',
             'other': 'data/other'
