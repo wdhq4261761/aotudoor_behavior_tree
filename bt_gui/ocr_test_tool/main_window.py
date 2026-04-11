@@ -1,8 +1,10 @@
 import customtkinter as ctk
+import tkinter as tk
 from typing import Optional
 from PIL import Image as PILImage
 from bt_gui.ocr_test_tool.test_runner import TestRunner
 from bt_utils.parameter_manager import ParameterManager
+from bt_utils.screenshot import ScreenshotManager
 
 
 class OCRTestMainWindow(ctk.CTk):
@@ -16,8 +18,10 @@ class OCRTestMainWindow(ctk.CTk):
         
         self.test_runner = TestRunner()
         self.param_manager = ParameterManager()
+        self.screenshot_manager = ScreenshotManager()
         
         self.current_image: Optional[PILImage.Image] = None
+        self.preprocessed_image: Optional[PILImage.Image] = None
         self.test_history = []
         
         self._create_ui()
@@ -108,13 +112,13 @@ class OCRTestMainWindow(ctk.CTk):
         )
         self.original_image_label.pack(pady=5)
         
-        self.original_image_frame = ctk.CTkFrame(
+        self.original_image_display = ctk.CTkLabel(
             self.screenshot_panel,
-            width=400,
-            height=250
+            text="",
+            width=380,
+            height=200
         )
-        self.original_image_frame.pack(pady=5, padx=10, fill="x")
-        self.original_image_frame.pack_propagate(False)
+        self.original_image_display.pack(pady=5, padx=10)
         
         self.preprocessed_image_label = ctk.CTkLabel(
             self.screenshot_panel,
@@ -123,13 +127,13 @@ class OCRTestMainWindow(ctk.CTk):
         )
         self.preprocessed_image_label.pack(pady=5)
         
-        self.preprocessed_image_frame = ctk.CTkFrame(
+        self.preprocessed_image_display = ctk.CTkLabel(
             self.screenshot_panel,
-            width=400,
-            height=250
+            text="",
+            width=380,
+            height=200
         )
-        self.preprocessed_image_frame.pack(pady=5, padx=10, fill="x")
-        self.preprocessed_image_frame.pack_propagate(False)
+        self.preprocessed_image_display.pack(pady=5, padx=10)
         
         self.btn_start_test = ctk.CTkButton(
             self.screenshot_panel,
@@ -291,8 +295,7 @@ class OCRTestMainWindow(ctk.CTk):
         self.status_label.configure(text="正在截图...")
         self.update()
         
-        from PIL import ImageGrab
-        self.current_image = ImageGrab.grab()
+        self.current_image = self.screenshot_manager.get_full_screenshot()
         
         self.status_label.configure(text="截图完成")
         self._update_image_display()
@@ -300,6 +303,107 @@ class OCRTestMainWindow(ctk.CTk):
     def _on_screenshot_region(self):
         """区域截图"""
         self.status_label.configure(text="请选择截图区域...")
+        self.update()
+        self._start_region_selection()
+        
+    def _start_region_selection(self):
+        """开始区域选择"""
+        import time
+        
+        try:
+            import screeninfo
+            
+            self.iconify()
+            time.sleep(0.2)
+            
+            monitors = screeninfo.get_monitors()
+            min_x = min(monitor.x for monitor in monitors)
+            min_y = min(monitor.y for monitor in monitors)
+            max_x = max(monitor.x + monitor.width for monitor in monitors)
+            max_y = max(monitor.y + monitor.height for monitor in monitors)
+            
+            select_window = tk.Toplevel(self)
+            select_window.geometry(f"{max_x - min_x}x{max_y - min_y}+{min_x}+{min_y}")
+            select_window.overrideredirect(True)
+            select_window.attributes("-alpha", 0.3)
+            select_window.attributes("-topmost", True)
+            select_window.configure(cursor="cross", bg="#1a1a2e")
+            
+            canvas = tk.Canvas(select_window, bg="#1a1a2e", highlightthickness=0)
+            canvas.pack(fill=tk.BOTH, expand=True)
+            
+            start_x_abs = [0]
+            start_y_abs = [0]
+            start_x_rel = [0]
+            start_y_rel = [0]
+            rect = [None]
+            
+            def on_mouse_down(event):
+                start_x_abs[0] = event.x_root
+                start_y_abs[0] = event.y_root
+                start_x_rel[0] = event.x_root - min_x
+                start_y_rel[0] = event.y_root - min_y
+                rect[0] = None
+            
+            def on_mouse_drag(event):
+                current_x_rel = event.x_root - min_x
+                current_y_rel = event.y_root - min_y
+                if rect[0]:
+                    canvas.delete(rect[0])
+                rect[0] = canvas.create_rectangle(
+                    start_x_rel[0], start_y_rel[0], current_x_rel, current_y_rel,
+                    outline="#FFFFFF", width=2, fill=""
+                )
+            
+            def on_mouse_up(event):
+                end_x_abs = event.x_root
+                end_y_abs = event.y_root
+                
+                select_window.destroy()
+                self.deiconify()
+                
+                if abs(end_x_abs - start_x_abs[0]) < 10 or abs(end_y_abs - start_y_abs[0]) < 10:
+                    self.status_label.configure(text="选择的区域太小，请重新选择")
+                    return
+                
+                region = (
+                    min(start_x_abs[0], end_x_abs),
+                    min(start_y_abs[0], end_y_abs),
+                    max(start_x_abs[0], end_x_abs),
+                    max(start_y_abs[0], end_y_abs)
+                )
+                
+                self._process_region_screenshot(region)
+            
+            def on_escape(e):
+                select_window.destroy()
+                self.deiconify()
+                self.status_label.configure(text="已取消截图")
+            
+            canvas.bind("<Button-1>", on_mouse_down)
+            canvas.bind("<B1-Motion>", on_mouse_drag)
+            canvas.bind("<ButtonRelease-1>", on_mouse_up)
+            select_window.bind("<Escape>", on_escape)
+            select_window.focus_set()
+            
+        except ImportError:
+            self.deiconify()
+            self.status_label.configure(text="错误: screeninfo库未安装，请运行 'pip install screeninfo'")
+        except Exception as e:
+            self.deiconify()
+            self.status_label.configure(text=f"区域选择失败: {str(e)}")
+            
+    def _process_region_screenshot(self, region):
+        """处理区域截图"""
+        import time
+        
+        self.update()
+        time.sleep(0.1)
+        
+        self.current_image = self.screenshot_manager.get_region_screenshot(region)
+        
+        self.status_label.configure(text="截图完成")
+        self._update_image_display()
         
     def _on_load_image(self):
         """加载图片"""
@@ -398,10 +502,44 @@ class OCRTestMainWindow(ctk.CTk):
         
     def _update_image_display(self):
         """更新图像显示"""
-        pass
+        if not self.current_image:
+            return
+        
+        display_width = 380
+        display_height = 200
+        
+        img_copy = self.current_image.copy()
+        img_copy.thumbnail((display_width, display_height), PILImage.Resampling.LANCZOS)
+        
+        ctk_image = ctk.CTkImage(
+            light_image=img_copy,
+            dark_image=img_copy,
+            size=img_copy.size
+        )
+        
+        self.original_image_display.configure(image=ctk_image)
+        self.original_image_display.image = ctk_image
+        
+        if self.preprocessed_image:
+            preproc_copy = self.preprocessed_image.copy()
+            if preproc_copy.mode == '1':
+                preproc_copy = preproc_copy.convert('RGB')
+            preproc_copy.thumbnail((display_width, display_height), PILImage.Resampling.LANCZOS)
+            
+            preproc_ctk_image = ctk.CTkImage(
+                light_image=preproc_copy,
+                dark_image=preproc_copy,
+                size=preproc_copy.size
+            )
+            
+            self.preprocessed_image_display.configure(image=preproc_ctk_image)
+            self.preprocessed_image_display.image = preproc_ctk_image
         
     def _display_result(self, result):
         """显示测试结果"""
+        self.preprocessed_image = result.preprocessed_image
+        self._update_image_display()
+        
         self.result_textbox.delete("1.0", "end")
         self.result_textbox.insert("1.0", f"识别结果:\n{result.recognized_text}\n\n")
         self.result_textbox.insert("end", f"成功: {'是' if result.success else '否'}\n")
