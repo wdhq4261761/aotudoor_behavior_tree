@@ -976,13 +976,27 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         
         import copy
         
-        min_x = min(self.nodes[nid].x for nid in self.selected_nodes if nid in self.nodes)
-        min_y = min(self.nodes[nid].y for nid in self.selected_nodes if nid in self.nodes)
+        # 过滤掉受保护的节点
+        nodes_to_copy = []
+        for node_id in self.selected_nodes:
+            if node_id not in self.nodes:
+                continue
+            node_item = self.nodes[node_id]
+            # 检查节点是否受保护
+            if hasattr(node_item, 'node') and node_item.node and node_item.node.is_protected():
+                continue
+            nodes_to_copy.append(node_id)
+        
+        if not nodes_to_copy:
+            return None
+        
+        min_x = min(self.nodes[nid].x for nid in nodes_to_copy if nid in self.nodes)
+        min_y = min(self.nodes[nid].y for nid in nodes_to_copy if nid in self.nodes)
         
         nodes_data = []
         relative_positions = {}
         
-        for node_id in self.selected_nodes:
+        for node_id in nodes_to_copy:
             if node_id not in self.nodes:
                 continue
             node = self.nodes[node_id]
@@ -998,7 +1012,7 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         connections = [
             (parent_id, child_id)
             for parent_id, child_id in self.connections
-            if parent_id in self.selected_nodes and child_id in self.selected_nodes
+            if parent_id in nodes_to_copy and child_id in nodes_to_copy
         ]
         
         return {
