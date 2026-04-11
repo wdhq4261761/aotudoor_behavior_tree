@@ -23,6 +23,7 @@ from bt_core.serializer import Serializer
 from bt_core.status import NodeStatus
 from bt_utils.auto_save import AutoSaveManager
 from bt_utils.crash_recovery import CrashRecoveryHandler
+from bt_utils.global_hotkey import GlobalHotkeyManager
 
 
 class BehaviorTreeEditor(ctk.CTkFrame):
@@ -52,6 +53,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         
         self._autosave_manager: Optional[AutoSaveManager] = None
         self._init_autosave()
+        
+        self._hotkey_manager = GlobalHotkeyManager.get_instance()
         
         self._create_ui()
         self._bind_events()
@@ -172,11 +175,10 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self._bind_run_shortcuts()
     
     def _bind_run_shortcuts(self):
-        """绑定运行快捷键（从设置读取）"""
-        root = self.winfo_toplevel()
-        
+        """绑定运行快捷键（从设置读取）- 使用全局热键"""
         start_key = "F10"
         stop_key = "F12"
+        record_key = "F11"
         
         try:
             if hasattr(self.app, 'settings') and hasattr(self.app.settings, 'get_settings'):
@@ -184,47 +186,46 @@ class BehaviorTreeEditor(ctk.CTkFrame):
                 shortcuts = settings.get("shortcuts", {})
                 start_key = shortcuts.get("start", "F10")
                 stop_key = shortcuts.get("stop", "F12")
+                record_key = shortcuts.get("record", "F11")
         except Exception:
             pass
         
-        def format_key(key: str) -> str:
-            key = key.strip()
-            if key.startswith("<") and key.endswith(">"):
-                return key
-            return f"<{key}>"
+        self._start_shortcut = start_key
+        self._stop_shortcut = stop_key
+        self._record_shortcut = record_key
         
-        start_key_formatted = format_key(start_key)
-        stop_key_formatted = format_key(stop_key)
+        self._hotkey_manager.register(start_key, self._start_running)
+        self._hotkey_manager.register(stop_key, self._stop_running)
+        self._hotkey_manager.register(record_key, self._toggle_recording)
         
-        root.bind(start_key_formatted, lambda e: self._start_running())
-        root.bind(stop_key_formatted, lambda e: self._stop_running())
-        
-        self._start_shortcut = start_key_formatted
-        self._stop_shortcut = stop_key_formatted
+        self._hotkey_manager.start()
     
-    def update_run_shortcuts(self, start_key: str, stop_key: str):
+    def _toggle_recording(self):
+        """切换录制状态"""
+        try:
+            if hasattr(self.app, 'script_tab') and hasattr(self.app.script_tab, 'toggle_recording'):
+                self.app.script_tab.toggle_recording()
+        except Exception as e:
+            print(f"[WARN] 切换录制状态失败: {e}")
+    
+    def update_run_shortcuts(self, start_key: str, stop_key: str, record_key: str = None):
         """更新运行快捷键"""
-        root = self.winfo_toplevel()
+        if hasattr(self, '_start_shortcut') and self._start_shortcut:
+            self._hotkey_manager.unregister(self._start_shortcut)
+        if hasattr(self, '_stop_shortcut') and self._stop_shortcut:
+            self._hotkey_manager.unregister(self._stop_shortcut)
+        if hasattr(self, '_record_shortcut') and self._record_shortcut and record_key:
+            self._hotkey_manager.unregister(self._record_shortcut)
         
-        if hasattr(self, '_start_shortcut'):
-            root.unbind(self._start_shortcut)
-        if hasattr(self, '_stop_shortcut'):
-            root.unbind(self._stop_shortcut)
+        self._hotkey_manager.register(start_key, self._start_running)
+        self._hotkey_manager.register(stop_key, self._stop_running)
         
-        def format_key(key: str) -> str:
-            key = key.strip()
-            if key.startswith("<") and key.endswith(">"):
-                return key
-            return f"<{key}>"
+        self._start_shortcut = start_key
+        self._stop_shortcut = stop_key
         
-        start_key_formatted = format_key(start_key)
-        stop_key_formatted = format_key(stop_key)
-        
-        root.bind(start_key_formatted, lambda e: self._start_running())
-        root.bind(stop_key_formatted, lambda e: self._stop_running())
-        
-        self._start_shortcut = start_key_formatted
-        self._stop_shortcut = stop_key_formatted
+        if record_key:
+            self._hotkey_manager.register(record_key, self._toggle_recording)
+            self._record_shortcut = record_key
     
     def _on_delete_key(self):
         """处理删除键，避免在输入框中误删节点"""
@@ -270,6 +271,10 @@ class BehaviorTreeEditor(ctk.CTkFrame):
                 "wait_complete": True,
                 "repeat_count": 0,
                 "interval_ms": 0
+            }
+        elif node_type == "DelayNode":
+            node_config = {
+                "duration_ms": 1000
             }
         
         command = AddNodeCommand(
@@ -878,6 +883,9 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.canvas.reset_view()
     
     def _start_running(self):
+        if self._is_running:
+            return
+        
         if self.engine and self.engine._running:
             return
         
@@ -896,6 +904,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             messagebox.showwarning("警告", "行为树为空，无法运行")
             return
 
+        self._is_running = True
         self._play_start_sound()
 
         self.canvas.show_all_status_indicators()
@@ -911,15 +920,26 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.toolbar.set_running(True)
 
     def _stop_running(self):
+        if not self._is_running:
+            return
+        
+        self.after(0, self._stop_running_in_main_thread)
+    
+    def _stop_running_in_main_thread(self):
+        """在主线程中执行停止操作"""
+        if not self._is_running:
+            return
+        
+        self._play_stop_sound()
+        
         if self.engine:
             self.engine.stop()
             self.engine = None
             self.context = None
         
-        self._play_stop_sound()
-        
         self.canvas.after(100, self._clear_status_after_stop)
         self.toolbar.set_running(False)
+        self._is_running = False
     
     def _clear_status_after_stop(self):
         """延迟清除状态，确保引擎完全停止"""
@@ -960,6 +980,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
 
     def _on_engine_status_change(self, status: str, node_status: NodeStatus = None):
         if status == "completed":
+            self._is_running = False
             self._play_stop_sound()
             self.toolbar.set_running(False)
             self.canvas.after(100, self._clear_status_after_stop)
@@ -1044,6 +1065,42 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.project_manager.create_project(name, description)
         
         self.canvas.clear_canvas()
+        
+        # 自动创建开始节点
+        from bt_core.nodes import StartNode
+        start_node = StartNode()
+        start_node.config.name = "开始"
+        
+        # 计算默认位置
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        if canvas_width <= 0:
+            canvas_width = 800
+        if canvas_height <= 0:
+            canvas_height = 600
+        
+        # 左右居中,上下偏顶部(预留20%空间)
+        x = canvas_width / 2
+        y = canvas_height * 0.2
+        
+        # 构建节点数据
+        node_data = {
+            "id": start_node.node_id,
+            "type": "StartNode",
+            "name": "开始",
+            "enabled": True,
+            "config": {
+                "repeat_count": -1
+            },
+            "position": {
+                "x": x,
+                "y": y
+            }
+        }
+        
+        # 添加到画布
+        self.canvas.add_node(node_data)
         
         if script_path and os.path.exists(script_path):
             self._import_old_script(script_path)
@@ -1166,6 +1223,9 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         
         if hasattr(self, '_crash_recovery_handler'):
             self._crash_recovery_handler.uninstall()
+        
+        if hasattr(self, '_hotkey_manager'):
+            self._hotkey_manager.stop()
         
         if hasattr(self, 'log_panel') and self.log_panel:
             self.log_panel.destroy()
