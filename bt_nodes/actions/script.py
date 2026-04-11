@@ -213,8 +213,8 @@ class ScriptNode(ActionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["script_path"] = self.script_path
-        data["config"]["extra"]["loop"] = self.loop
+        data["config"]["script_path"] = self.script_path
+        data["config"]["loop"] = self.loop
         return data
 
     @classmethod

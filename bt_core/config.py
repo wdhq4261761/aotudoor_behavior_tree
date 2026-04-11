@@ -14,6 +14,7 @@ class NodeConfig:
         repeat_count: 重复次数（-1表示无限）
         repeat_interval_ms: 重复间隔（毫秒）
         timeout_ms: 超时时间（毫秒）
+        extra: 额外配置字段
     """
     name: str = ""
     description: str = ""
@@ -22,6 +23,7 @@ class NodeConfig:
     repeat_count: int = 0
     repeat_interval_ms: int = 100
     timeout_ms: int = 0
+    extra: Dict[str, Any] = field(default_factory=dict)
     
     def get(self, key: str, default: Any = None) -> Any:
         """获取配置值
@@ -33,7 +35,9 @@ class NodeConfig:
         Returns:
             配置值
         """
-        return getattr(self, key, default)
+        if hasattr(self, key):
+            return getattr(self, key, default)
+        return self.extra.get(key, default)
     
     def set(self, key: str, value: Any) -> None:
         """设置配置值
@@ -42,24 +46,38 @@ class NodeConfig:
             key: 配置键
             value: 配置值
         """
-        if hasattr(self, key):
+        if hasattr(self, key) and key != "extra":
             setattr(self, key, value)
+        else:
+            self.extra[key] = value
     
     def to_dict(self) -> Dict[str, Any]:
-        """序列化为字典
+        """序列化为字典（扁平化格式，与原项目兼容）
         
         Returns:
             字典表示
         """
-        return {
-            "name": self.name,
-            "description": self.description,
-            "enabled": self.enabled,
-            "retry_count": self.retry_count,
-            "repeat_count": self.repeat_count,
-            "repeat_interval_ms": self.repeat_interval_ms,
-            "timeout_ms": self.timeout_ms,
-        }
+        result = {}
+        
+        if self.name:
+            result["name"] = self.name
+        if self.description:
+            result["description"] = self.description
+        result["enabled"] = self.enabled
+        if self.retry_count != 0:
+            result["retry_count"] = self.retry_count
+        if self.repeat_count != 0:
+            result["repeat_count"] = self.repeat_count
+        if self.repeat_interval_ms != 100:
+            result["repeat_interval_ms"] = self.repeat_interval_ms
+        if self.timeout_ms != 0:
+            result["timeout_ms"] = self.timeout_ms
+        
+        if self.extra:
+            for key, value in self.extra.items():
+                result[key] = value
+        
+        return result
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "NodeConfig":
@@ -92,6 +110,17 @@ class NodeConfig:
                 return value.lower() in ("true", "1", "yes")
             return bool(value)
         
+        known_keys = {
+            "name", "description", "enabled", "retry_count", 
+            "repeat_count", "repeat_interval_ms", "timeout_ms", "extra"
+        }
+        
+        extra = data.get("extra", {})
+        
+        for key, value in data.items():
+            if key not in known_keys:
+                extra[key] = value
+        
         return cls(
             name=str(data.get("name", "")),
             description=str(data.get("description", "")),
@@ -100,6 +129,7 @@ class NodeConfig:
             repeat_count=to_int(data.get("repeat_count", 0)),
             repeat_interval_ms=to_int(data.get("repeat_interval_ms", 100)),
             timeout_ms=to_int(data.get("timeout_ms", 0)),
+            extra=extra,
         )
     
     def get_int(self, key: str, default: int = 0) -> int:
@@ -112,7 +142,7 @@ class NodeConfig:
         Returns:
             整数配置值
         """
-        value = getattr(self, key, default)
+        value = self.get(key, default)
         if value is None:
             return default
         if isinstance(value, int):
@@ -134,7 +164,7 @@ class NodeConfig:
         Returns:
             布尔配置值
         """
-        value = getattr(self, key, default)
+        value = self.get(key, default)
         if value is None:
             return default
         if isinstance(value, bool):
@@ -153,7 +183,7 @@ class NodeConfig:
         Returns:
             浮点配置值
         """
-        value = getattr(self, key, default)
+        value = self.get(key, default)
         if value is None:
             return default
         if isinstance(value, (int, float)):

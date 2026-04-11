@@ -680,8 +680,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             script_path: 旧脚本文件路径
         """
         import json
-        import shutil
-        from bt_utils.resource_importer import ResourceImporter
+        from bt_utils.resource_service import ResourceService
         
         try:
             with open(script_path, 'r', encoding='utf-8') as f:
@@ -689,9 +688,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             
             script_dir = os.path.dirname(script_path)
             
-            resource_importer = ResourceImporter(self.project_root)
-            
-            updated_data = self._migrate_resources(script_data, script_dir, resource_importer)
+            updated_data = self._migrate_resources(script_data, script_dir)
             
             self.project_manager.save_project(updated_data)
             
@@ -701,52 +698,60 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             from tkinter import messagebox
             messagebox.showerror("错误", f"导入旧脚本失败: {str(e)}")
     
-    def _migrate_resources(self, data: dict, script_dir: str, resource_importer) -> dict:
+    def _migrate_resources(self, data: dict, script_dir: str) -> dict:
         """迁移脚本中的资源引用
         
         Args:
             data: 脚本数据
             script_dir: 脚本所在目录
-            resource_importer: 资源导入器
             
         Returns:
             更新后的脚本数据
         """
-        if "nodes" in data:
-            if isinstance(data["nodes"], dict):
-                for node_id, node in data["nodes"].items():
-                    if "config" in node:
-                        config = node["config"]
-                        
-                        for key, value in list(config.items()):
-                            if isinstance(value, str) and self._is_resource_path(value):
-                                absolute_path = self._resolve_old_path(value, script_dir)
-                                
-                                if absolute_path and os.path.exists(absolute_path):
-                                    resource_type = self._detect_resource_type(key, value)
-                                    
-                                    try:
-                                        new_relative_path = resource_importer.import_resource(absolute_path, resource_type)
-                                        config[key] = new_relative_path
-                                    except Exception as e:
-                                        print(f"导入资源失败 {absolute_path}: {e}")
-            elif isinstance(data["nodes"], list):
-                for node in data["nodes"]:
-                    if "config" in node:
-                        config = node["config"]
-                        
-                        for key, value in list(config.items()):
-                            if isinstance(value, str) and self._is_resource_path(value):
-                                absolute_path = self._resolve_old_path(value, script_dir)
-                                
-                                if absolute_path and os.path.exists(absolute_path):
-                                    resource_type = self._detect_resource_type(key, value)
-                                    
-                                    try:
-                                        new_relative_path = resource_importer.import_resource(absolute_path, resource_type)
-                                        config[key] = new_relative_path
-                                    except Exception as e:
-                                        print(f"导入资源失败 {absolute_path}: {e}")
+        from bt_utils.resource_service import ResourceService
+        
+        if "nodes" not in data:
+            return data
+        
+        nodes = data["nodes"]
+        items = nodes.items() if isinstance(nodes, dict) else enumerate(nodes)
+        
+        for node_key, node in items:
+            if "config" not in node:
+                continue
+            
+            config = node["config"]
+            
+            for key, value in list(config.items()):
+                if not isinstance(value, str):
+                    continue
+                
+                if not ResourceService.is_resource_path(value):
+                    continue
+                
+                absolute_path = self._resolve_old_path(value, script_dir)
+                
+                if not absolute_path or not os.path.exists(absolute_path):
+                    continue
+                
+                abs_project_root = os.path.abspath(self.project_root)
+                abs_source_path = os.path.abspath(absolute_path)
+                
+                if abs_source_path.startswith(abs_project_root):
+                    continue
+                
+                resource_type = self._detect_resource_type(key, value)
+                
+                try:
+                    new_relative_path = ResourceService.import_single_file_to_project(
+                        absolute_path,
+                        self.project_root,
+                        resource_type
+                    )
+                    if new_relative_path:
+                        config[key] = new_relative_path
+                except Exception as e:
+                    print(f"导入资源失败 {absolute_path}: {e}")
         
         return data
     
@@ -803,6 +808,17 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         Returns:
             资源类型（与ResourceImporter兼容）
         """
+        key_lower = key.lower()
+        
+        if key_lower == 'code_path':
+            return 'code'
+        elif key_lower == 'script_path':
+            return 'script'
+        elif key_lower == 'template_path':
+            return 'image'
+        elif key_lower == 'sound_path':
+            return 'audio'
+        
         path_lower = path.lower()
         
         if any(path_lower.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff']):
@@ -812,11 +828,13 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         elif any(path_lower.endswith(ext) for ext in ['.py', '.bat', '.cmd', '.sh', '.ps1']):
             return 'script'
         else:
-            if 'image' in key.lower() or 'template' in key.lower() or 'screenshot' in key.lower():
+            if 'image' in key_lower or 'template' in key_lower or 'screenshot' in key_lower:
                 return 'image'
-            elif 'sound' in key.lower() or 'audio' in key.lower() or 'alarm' in key.lower():
+            elif 'sound' in key_lower or 'audio' in key_lower or 'alarm' in key_lower:
                 return 'audio'
-            elif 'script' in key.lower() or 'code' in key.lower():
+            elif 'code' in key_lower:
+                return 'code'
+            elif 'script' in key_lower:
                 return 'script'
             else:
                 return 'data'

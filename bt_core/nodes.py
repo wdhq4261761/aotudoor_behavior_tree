@@ -490,7 +490,7 @@ class ConditionNode(Node):
             default_position_key = "last_detection_position"
         
         self.position_key = self.config.get("position_key", default_position_key)
-        self._last_check_time = 0
+        self._last_check_time = -self.check_interval_ms - 1  # 确保第一次一定会执行
         self._child_index = 0
 
     def tick(self, context: "ExecutionContext") -> NodeStatus:
@@ -640,8 +640,7 @@ class StartNode(SequenceNode):
         self._is_protected = True  # 不可删除标记
     
     def tick(self, context: "ExecutionContext") -> NodeStatus:
-        """
-        执行所有子节点,失败后继续执行
+        """执行所有子节点,失败后继续执行
         
         与SequenceNode的区别:
         - SequenceNode: 任一子节点失败立即返回FAILURE
@@ -653,27 +652,32 @@ class StartNode(SequenceNode):
         Returns:
             NodeStatus: 执行状态
         """
+        return self._execute_with_decorators(context, self._tick_internal)
+    
+    def _tick_internal(self, context: "ExecutionContext") -> NodeStatus:
+        """内部执行逻辑"""
         if not self.children:
             return NodeStatus.SUCCESS
         
-        # 执行所有子节点(不短路)
+        print(f"[StartNode] 执行子节点 - 子节点数量: {len(self.children)}, 重复次数: {self.config.repeat_count}, 当前重复: {self._repeat_count}")
+        
         has_running = False
-        for child in self.children:
+        for i, child in enumerate(self.children):
             if not child.config.enabled:
+                print(f"[StartNode] 子节点 {i} 已禁用，跳过")
                 continue
             
+            print(f"[StartNode] 执行子节点 {i}: {child.name}")
             status = child.tick(context)
+            print(f"[StartNode] 子节点 {i} 返回: {status}")
             
-            # 如果有子节点正在运行,记录状态但不中断执行
             if status == NodeStatus.RUNNING:
                 has_running = True
         
-        # 如果有子节点正在运行,返回RUNNING
         if has_running:
             return NodeStatus.RUNNING
         
-        # 所有子节点执行完毕,返回SUCCESS
-        # 重复执行逻辑由Node基类的装饰器参数处理
+        print(f"[StartNode] 所有子节点执行完毕")
         return NodeStatus.SUCCESS
     
     def reset(self, reset_counters: bool = True) -> None:

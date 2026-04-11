@@ -1,7 +1,8 @@
 customtkinter>=5.2.0
 Pillow>=10.0.0
 pyautogui>=0.9.54
-pytesseract>=0.3.10
+rapidocr>=1.3.0
+onnxruntime==1.19.0
 pygame>=2.0.0
 pynput>=1.7.6
 opencv-python-headless>=4.5.0

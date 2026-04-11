@@ -1,59 +1,22 @@
-import pytesseract
+from rapidocr import RapidOCR
 from PIL import Image, ImageEnhance, ImageFilter
 from typing import Tuple, Optional, List
-import os
+import numpy as np
 import re
-import sys
-
-
-def get_tesseract_paths(app_root: str) -> List[str]:
-    """获取Tesseract可执行文件的可能路径
-    
-    Args:
-        app_root: 应用根目录
-        
-    Returns:
-        可能的路径列表
-    """
-    return [
-        os.path.join(app_root, "tesseract", "tesseract.exe"),
-        os.path.join(app_root, "tesseract.exe"),
-    ]
-
-
-def find_tesseract() -> Optional[str]:
-    """自动查找Tesseract路径
-    
-    Returns:
-        Tesseract可执行文件路径，未找到返回None
-    """
-    if hasattr(sys, '_MEIPASS'):
-        app_root = sys._MEIPASS
-    else:
-        app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    possible_paths = get_tesseract_paths(app_root)
-    
-    for path in possible_paths:
-        if os.path.exists(path):
-            tessdata_dir = os.path.join(os.path.dirname(path), "tessdata")
-            if os.path.exists(tessdata_dir):
-                os.environ["TESSDATA_PREFIX"] = tessdata_dir
-            return path
-    
-    return None
 
 
 class OCRManager:
     """OCR管理器
 
-    封装Tesseract OCR功能，提供文字识别和数字识别。
-    支持图像预处理和多PSM模式识别。
+    封装RapidOCR功能，提供文字识别和数字识别。
+    支持图像预处理和多语言识别。
     使用单例模式。
     """
     _instance = None
-    _tesseract_path: Optional[str] = None
     _initialized: bool = False
+    _engine: Optional[RapidOCR] = None
+    _available: bool = True
+    _unavailable_reason: str = ""
 
     CHINESE_LANGS = {"chi_sim", "chi_tra"}
 
@@ -65,37 +28,68 @@ class OCRManager:
     def __init__(self):
         if self._initialized:
             return
-        self._initialized = True
-        self._auto_configure_tesseract()
-
-    @classmethod
-    def _auto_configure_tesseract(cls):
-        """自动配置Tesseract路径"""
-        tesseract_path = find_tesseract()
-        if tesseract_path:
-            cls._tesseract_path = tesseract_path
-            pytesseract.pytesseract.tesseract_cmd = tesseract_path
-
-    @classmethod
-    def set_tesseract_path(cls, path: str) -> None:
-        """设置Tesseract OCR路径
-
-        Args:
-            path: Tesseract安装目录或可执行文件路径
-        """
-        cls._tesseract_path = path
-        if path and os.path.exists(path):
-            if os.path.isdir(path):
-                tesseract_exe = os.path.join(path, "tesseract.exe")
-            else:
-                tesseract_exe = path
+        
+        if not self._available:
+            print(f"[OCR] OCR功能不可用: {self._unavailable_reason}")
+            return
+        
+        print(f"[OCR] 开始初始化 OCRManager...")
+        
+        try:
+            print(f"[OCR] 尝试创建 RapidOCR 引擎...")
+            self._engine = RapidOCR()
+            print(f"[OCR] RapidOCR 引擎创建成功: {self._engine}")
             
-            if os.path.exists(tesseract_exe):
-                pytesseract.pytesseract.tesseract_cmd = tesseract_exe
-                
-                tessdata_dir = os.path.join(os.path.dirname(tesseract_exe), "tessdata")
-                if os.path.exists(tessdata_dir):
-                    os.environ["TESSDATA_PREFIX"] = tessdata_dir
+            if self._engine is None:
+                raise RuntimeError("RapidOCR 引擎创建失败，返回 None")
+            
+            self._initialized = True
+            print(f"[OCR] OCRManager 初始化完成")
+            
+        except Exception as e:
+            print(f"[OCR] RapidOCR 初始化失败: {e}")
+            import traceback
+            traceback.print_exc()
+            self._engine = None
+            self._initialized = False
+            OCRManager._available = False
+            OCRManager._unavailable_reason = str(e)
+
+    @classmethod
+    def initialize(cls):
+        """初始化OCR引擎（在应用启动时调用）"""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def set_unavailable(cls, reason: str):
+        """设置OCR不可用
+        
+        Args:
+            reason: 不可用原因
+        """
+        cls._available = False
+        cls._unavailable_reason = reason
+        print(f"[OCR] OCR功能已标记为不可用: {reason}")
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """检查OCR是否可用
+        
+        Returns:
+            是否可用
+        """
+        return cls._available
+
+    @classmethod
+    def get_unavailable_reason(cls) -> str:
+        """获取OCR不可用原因
+        
+        Returns:
+            不可用原因
+        """
+        return cls._unavailable_reason
 
     def _preprocess_chinese(self, image: Image.Image) -> Image.Image:
         """中文图像预处理
@@ -129,7 +123,7 @@ class OCRManager:
         image = enhancer.enhance(2.0)
         
         threshold = 130
-        image = image.point(lambda x: 255 if x > threshold else 0, '1')
+        image = image.point(lambda x: 255 if x > threshold else 0, 'L')
         
         return image
 
@@ -154,7 +148,7 @@ class OCRManager:
         image = enhancer.enhance(1.5)
         
         threshold = 128
-        image = image.point(lambda x: 255 if x > threshold else 0, '1')
+        image = image.point(lambda x: 255 if x > threshold else 0, 'L')
         
         return image
 
@@ -165,7 +159,7 @@ class OCRManager:
         Args:
             image: 原始图像
             language: OCR语言
-            preprocess_mode: 预处理模式 (normal/artistic)
+            preprocess_mode: 预处理模式
 
         Returns:
             预处理后的图像
@@ -178,72 +172,92 @@ class OCRManager:
         else:
             return self._preprocess_standard(image)
 
-    def _try_multi_psm(self, image: Image.Image, language: str,
-                       config_extra: str = "") -> Tuple[bool, str]:
-        """多PSM模式尝试识别
-
-        PSM顺序：7(单行)→6(文本块)→11(稀疏文本)
-        OEM模式：3 (LSTM引擎，最佳识别质量)
-
-        Args:
-            image: 图像
-            language: 语言
-            config_extra: 额外配置
-
-        Returns:
-            (是否成功, 识别文本)
-        """
-        psm_modes = [7, 6, 11]
-        
-        for psm in psm_modes:
-            try:
-                config = f"--psm {psm} --oem 3 {config_extra}".strip()
-                text = pytesseract.image_to_string(image, lang=language, config=config)
-                text = text.strip()
-                
-                if text:
-                    return True, text
-            except Exception:
-                continue
-        
-        return False, ""
-
     def recognize(self, image: Image.Image, keywords: str = None,
                   language: str = "eng",
-                  preprocess_mode: str = "normal") -> Tuple[bool, Optional[Tuple[int, int]]]:
+                  preprocess_mode: str = "normal",
+                  region: Tuple[int, int, int, int] = None) -> Tuple[bool, Optional[Tuple[int, int]], str]:
         """执行OCR识别
 
         Args:
             image: PIL.Image 图像
             keywords: 关键词（逗号分隔）
             language: OCR语言
-            preprocess_mode: 预处理模式 (normal/artistic)
+            preprocess_mode: 预处理模式
+            region: 截图区域 (left, top, right, bottom)，用于坐标转换
 
         Returns:
-            (是否找到, 位置坐标) 元组
+            (是否找到, 位置坐标, 所有识别文本) 元组
         """
         try:
+            if not self._available:
+                print(f"[OCR] OCR功能不可用: {self._unavailable_reason}")
+                return False, None, ""
+            
+            if self._engine is None:
+                print(f"[OCR] 错误: RapidOCR 引擎未初始化！")
+                return False, None, ""
+            
+            print(f"[OCR] 开始识别 - 语言: {language}, 关键词: {keywords}")
+            print(f"[OCR] 图像尺寸: {image.size}, 模式: {image.mode}")
+            if region:
+                print(f"[OCR] 截图区域: {region}")
+            
             processed = self._preprocess_image(image, language, preprocess_mode)
+            print(f"[OCR] 预处理后图像尺寸: {processed.size}, 模式: {processed.mode}")
             
-            config = "--oem 3"
+            img_array = np.array(processed)
+            print(f"[OCR] 转换为数组，形状: {img_array.shape}, 数据类型: {img_array.dtype}")
             
-            data = pytesseract.image_to_data(
-                processed, lang=language, config=config,
-                output_type=pytesseract.Output.DICT
-            )
-
+            print(f"[OCR] 调用 RapidOCR 引擎...")
+            result = self._engine(img_array)
+            
+            if result is None:
+                print(f"[OCR] RapidOCR返回None")
+                return False, None, ""
+            
+            if result.boxes is None or len(result.boxes) == 0:
+                print(f"[OCR] 未检测到文本框")
+                return False, None, ""
+            
+            print(f"[OCR] 检测到 {len(result.boxes)} 个文本框")
+            
+            all_text = " ".join(result.txts) if result.txts else ""
+            print(f"[OCR] 识别文本: {all_text}")
+            
+            for i, (text, score) in enumerate(zip(result.txts, result.scores)):
+                print(f"[OCR] 文本{i+1}: '{text}' (置信度: {score:.2f})")
+            
             if keywords:
                 keyword_list = [k.strip().lower() for k in keywords.split(",")]
-
-                for i, text in enumerate(data["text"]):
+                print(f"[OCR] 搜索关键词列表: {keyword_list}")
+                
+                for i, text in enumerate(result.txts):
                     if not text:
                         continue
-
+                    
                     text_lower = text.lower()
                     for keyword in keyword_list:
-                        if keyword in text_lower:
-                            x = data["left"][i] + data["width"][i] // 2
-                            y = data["top"][i] + data["height"][i] // 2
+                        keyword_idx = text_lower.find(keyword)
+                        
+                        if keyword_idx != -1:
+                            box = result.boxes[i]
+                            
+                            keyword_len = len(keyword)
+                            text_len = len(text)
+                            
+                            start_ratio = keyword_idx / text_len
+                            end_ratio = (keyword_idx + keyword_len) / text_len
+                            center_ratio = (start_ratio + end_ratio) / 2
+                            
+                            box_left = box[0][0]
+                            box_right = box[2][0]
+                            box_top = box[0][1]
+                            box_bottom = box[2][1]
+                            box_width = box_right - box_left
+                            box_height = box_bottom - box_top
+                            
+                            x = int(box_left + box_width * center_ratio)
+                            y = int(box_top + box_height / 2)
                             
                             if image.size != processed.size:
                                 scale_x = image.size[0] / processed.size[0]
@@ -251,111 +265,114 @@ class OCRManager:
                                 x = int(x * scale_x)
                                 y = int(y * scale_y)
                             
-                            return True, (x, y)
-
-                return False, None
-
-            return True, None
-
+                            if region:
+                                x += region[0]
+                                y += region[1]
+                                print(f"[OCR] 转换为绝对坐标: ({x}, {y})")
+                            
+                            print(f"[OCR] 找到关键词 '{keyword}' 在文本 '{text}' 中")
+                            print(f"  关键词位置: 文本框左={box_left}, 右={box_right}, 上={box_top}, 下={box_bottom}")
+                            print(f"  关键词相对位置: {start_ratio:.2%} - {end_ratio:.2%}, 中心: {center_ratio:.2%}")
+                            print(f"  计算位置: ({x}, {y})")
+                            
+                            return True, (x, y), all_text
+                
+                print(f"[OCR] 未找到任何关键词")
+                return False, None, all_text
+            
+            print(f"[OCR] 无关键词搜索，返回成功")
+            return True, None, all_text
+        
         except Exception as e:
-            print(f"[WARN] OCR识别错误: {e}")
-            return False, None
-    
+            print(f"[OCR] 识别错误: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, None, ""
+
     def recognize_single_psm(self, image: Image.Image, keywords: str = None,
                              language: str = "eng",
                              preprocess_mode: str = "normal",
-                             psm: int = 7, oem: int = 3) -> Tuple[bool, Optional[Tuple[int, int]]]:
-        """执行OCR识别（单PSM模式）
+                             psm: int = 7, oem: int = 3,
+                             region: Tuple[int, int, int, int] = None) -> Tuple[bool, Optional[Tuple[int, int]], str]:
+        """执行OCR识别（兼容接口，PSM/OEM参数已废弃）
 
         Args:
             image: PIL.Image 图像
             keywords: 关键词（逗号分隔）
             language: OCR语言
-            preprocess_mode: 预处理模式 (normal/artistic)
-            psm: PSM模式
-            oem: OEM模式
+            preprocess_mode: 预处理模式
+            psm: PSM模式 (已废弃，RapidOCR自动处理)
+            oem: OEM模式 (已废弃，RapidOCR使用ONNX)
+            region: 截图区域
 
         Returns:
-            (是否找到, 位置坐标) 元组
+            (是否找到, 位置坐标, 所有识别文本) 元组
         """
-        try:
-            processed = self._preprocess_image(image, language, preprocess_mode)
-            
-            config = f"--psm {psm} --oem {oem}"
-            
-            data = pytesseract.image_to_data(
-                processed, lang=language, config=config,
-                output_type=pytesseract.Output.DICT
-            )
-
-            if keywords:
-                keyword_list = [k.strip().lower() for k in keywords.split(",")]
-
-                for i, text in enumerate(data["text"]):
-                    if not text:
-                        continue
-
-                    text_lower = text.lower()
-                    for keyword in keyword_list:
-                        if keyword in text_lower:
-                            x = data["left"][i] + data["width"][i] // 2
-                            y = data["top"][i] + data["height"][i] // 2
-                            
-                            if image.size != processed.size:
-                                scale_x = image.size[0] / processed.size[0]
-                                scale_y = image.size[1] / processed.size[1]
-                                x = int(x * scale_x)
-                                y = int(y * scale_y)
-                            
-                            return True, (x, y)
-
-                return False, None
-
-            return True, None
-
-        except Exception as e:
-            print(f"[WARN] OCR识别错误: {e}")
-            return False, None
+        return self.recognize(image, keywords, language, preprocess_mode, region)
 
     def recognize_number(self, image: Image.Image, language: str = "eng",
                          preprocess_mode: str = "normal",
                          extract_mode: str = "无规则",
                          extract_pattern: str = "",
-                         min_confidence: float = 0.5) -> Tuple[bool, Optional[float]]:
+                         min_confidence: float = 0.5) -> Tuple[bool, Optional[float], str]:
         """识别数字
 
         Args:
             image: PIL.Image 图像
             language: OCR语言
-            preprocess_mode: 预处理模式 (normal/artistic)
+            preprocess_mode: 预处理模式
             extract_mode: 提取模式 (无规则/x/y/自定义)
             extract_pattern: 自定义提取模式（使用*作为通配符）
-            min_confidence: 最小置信度
+            min_confidence: 最小置信度 (RapidOCR自动过滤低置信度结果)
 
         Returns:
-            (是否识别成功, 数字值) 元组
+            (是否识别成功, 数字值, 所有识别文本) 元组
         """
         try:
+            if not self._available:
+                print(f"[OCR] OCR功能不可用: {self._unavailable_reason}")
+                return False, None, ""
+            
+            if self._engine is None:
+                print(f"[OCR] 错误: RapidOCR 引擎未初始化！")
+                return False, None, ""
+            
+            print(f"[OCR] 开始数字识别 - 语言: {language}, 提取模式: {extract_mode}")
+            print(f"[OCR] 图像尺寸: {image.size}, 模式: {image.mode}")
+            
             processed = self._preprocess_image(image, language, preprocess_mode)
+            print(f"[OCR] 预处理后图像尺寸: {processed.size}, 模式: {processed.mode}")
             
-            success, text = self._try_multi_psm(
-                processed, language,
-                "-c tessedit_char_whitelist=0123456789.-/:*"
-            )
+            img_array = np.array(processed)
+            print(f"[OCR] 转换为数组，形状: {img_array.shape}")
             
-            if not success or not text:
-                return False, None
-
-            extracted = self._extract_number(text, extract_mode, extract_pattern)
+            result = self._engine(img_array)
+            
+            if result is None or result.txts is None or len(result.txts) == 0:
+                print(f"[OCR] 未检测到文本")
+                return False, None, ""
+            
+            all_text = " ".join(result.txts)
+            print(f"[OCR] 识别文本: {all_text}")
+            
+            for i, (text, score) in enumerate(zip(result.txts, result.scores)):
+                print(f"[OCR] 文本{i+1}: '{text}' (置信度: {score:.2f})")
+            
+            extracted = self._extract_number(all_text, extract_mode, extract_pattern)
+            print(f"[OCR] 提取数字结果: {extracted}")
             
             if extracted is not None:
-                return True, extracted
-
-            return False, None
-
+                print(f"[OCR] 成功提取数字: {extracted}")
+                return True, extracted, all_text
+            
+            print(f"[OCR] 未能提取数字")
+            return False, None, all_text
+        
         except Exception as e:
-            print(f"[WARN] OCR数字识别错误: {e}")
-            return False, None
+            print(f"[OCR] 数字识别错误: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, None, ""
 
     def _extract_number(self, text: str, extract_mode: str,
                         extract_pattern: str) -> Optional[float]:
@@ -415,21 +432,32 @@ class OCRManager:
             image: PIL.Image 图像
             language: OCR语言
             preprocess_mode: 预处理模式
-            psm: PSM模式 (可选)
-            oem: OEM模式 (可选)
+            psm: PSM模式 (已废弃，RapidOCR自动处理)
+            oem: OEM模式 (已废弃，RapidOCR使用ONNX)
             
         Returns:
             识别文本
         """
         try:
+            if not self._available:
+                print(f"[OCR] OCR功能不可用: {self._unavailable_reason}")
+                return ""
+            
+            if self._engine is None:
+                print(f"[OCR] 错误: RapidOCR 引擎未初始化！")
+                return ""
+            
             processed = self._preprocess_image(image, language, preprocess_mode)
             
-            if psm is not None and oem is not None:
-                config = f"--psm {psm} --oem {oem}"
-            else:
-                config = "--oem 3"
+            img_array = np.array(processed)
             
-            return pytesseract.image_to_string(processed, lang=language, config=config)
+            result = self._engine(img_array)
+            
+            if result is None or result.txts is None or len(result.txts) == 0:
+                return ""
+            
+            return "\n".join(result.txts)
+        
         except Exception as e:
             print(f"[WARN] OCR文本识别错误: {e}")
             return ""

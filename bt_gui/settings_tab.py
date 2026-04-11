@@ -6,7 +6,6 @@ import os
 from .theme import Theme
 from .widgets import CardFrame, AnimatedButton, create_section_title, create_divider
 from bt_utils.resource_manager import ResourceManager
-from bt_utils.ocr_manager import find_tesseract
 
 
 class SettingsTab(ctk.CTkFrame):
@@ -21,12 +20,10 @@ class SettingsTab(ctk.CTkFrame):
         self._create_ui()
     
     def _init_variables(self):
-        default_tesseract = find_tesseract() or ""
         default_alarm_sound = ResourceManager().get_alarm_sound_path()
         if not os.path.exists(default_alarm_sound):
             default_alarm_sound = ""
         
-        self.tesseract_path = tk.StringVar(value=default_tesseract)
         self.alarm_sound_path = tk.StringVar(value=default_alarm_sound)
         self.alarm_volume = tk.IntVar(value=70)
         self.alarm_volume_str = tk.StringVar(value="70")
@@ -58,7 +55,7 @@ class SettingsTab(ctk.CTkFrame):
         scroll_frame.pack(fill="both", expand=True, padx=Theme.DIMENSIONS['spacing_md'], pady=Theme.DIMENSIONS['spacing_md'])
         
         self._create_project_section(scroll_frame)
-        self._create_tesseract_section(scroll_frame)
+        self._create_ocr_section(scroll_frame)
         self._create_alarm_section(scroll_frame)
         self._create_shortcut_section(scroll_frame)
     
@@ -100,43 +97,28 @@ class SettingsTab(ctk.CTkFrame):
         )
         self.browse_project_btn.pack(side="left")
     
-    def _create_tesseract_section(self, parent):
-        tess_frame = CardFrame(parent)
-        tess_frame.pack(fill="x", pady=(0, Theme.DIMENSIONS['spacing_md']))
+    def _create_ocr_section(self, parent):
+        """创建OCR信息区域"""
+        ocr_frame = CardFrame(parent)
+        ocr_frame.pack(fill="x", pady=(0, Theme.DIMENSIONS['spacing_md']))
         
-        tess_header = ctk.CTkFrame(tess_frame, fg_color="transparent")
-        tess_header.pack(fill="x", padx=Theme.DIMENSIONS['spacing_md'], pady=(Theme.DIMENSIONS['spacing_md'], Theme.DIMENSIONS['spacing_sm']))
-        create_section_title(tess_header, "Tesseract OCR 设置", level=1).pack(side="left")
+        ocr_header = ctk.CTkFrame(ocr_frame, fg_color="transparent")
+        ocr_header.pack(fill="x", padx=Theme.DIMENSIONS['spacing_md'], pady=(Theme.DIMENSIONS['spacing_md'], Theme.DIMENSIONS['spacing_sm']))
+        create_section_title(ocr_header, "OCR 引擎信息", level=1).pack(side="left")
         
-        create_divider(tess_frame)
+        create_divider(ocr_frame)
         
-        tess_row = ctk.CTkFrame(tess_frame, fg_color="transparent")
-        tess_row.pack(fill="x", padx=Theme.DIMENSIONS['spacing_md'], pady=(Theme.DIMENSIONS['spacing_sm'], Theme.DIMENSIONS['spacing_md']))
+        info_frame = ctk.CTkFrame(ocr_frame, fg_color=self._dark_colors['bg_secondary'])
+        info_frame.pack(fill="x", padx=Theme.DIMENSIONS['spacing_md'], pady=(Theme.DIMENSIONS['spacing_sm'], Theme.DIMENSIONS['spacing_md']))
         
-        ctk.CTkLabel(tess_row, text="路径:", font=Theme.get_font("sm"), text_color=self._dark_colors['text_secondary']).pack(side="left")
-        
-        self.tesseract_entry = ctk.CTkEntry(
-            tess_row, 
-            textvariable=self.tesseract_path, 
-            height=28, 
-            state="disabled",
-            fg_color=self._dark_colors['bg_tertiary'],
-            text_color=self._dark_colors['text_primary']
+        info_text = ctk.CTkLabel(
+            info_frame,
+            text="当前使用: RapidOCR\n基于ONNX Runtime，无需额外配置\n支持中英文识别，识别速度更快",
+            font=Theme.get_font("sm"),
+            text_color=self._dark_colors['text_secondary'],
+            justify="left"
         )
-        self.tesseract_entry.pack(side="left", fill="x", expand=True, padx=(Theme.DIMENSIONS['spacing_sm'], Theme.DIMENSIONS['spacing_sm']))
-        
-        self.set_path_btn = AnimatedButton(
-            tess_row, 
-            text="浏览", 
-            font=Theme.get_font("xs"), 
-            width=50, 
-            height=28,
-            corner_radius=Theme.DIMENSIONS['button_corner_radius'], 
-            fg_color=Theme.COLORS['primary'],
-            hover_color=Theme.COLORS['primary_hover'],
-            command=self._browse_tesseract
-        )
-        self.set_path_btn.pack(side="left")
+        info_text.pack(padx=Theme.DIMENSIONS['spacing_md'], pady=Theme.DIMENSIONS['spacing_md'], anchor="w")
     
     def _create_alarm_section(self, parent):
         alarm_frame = CardFrame(parent)
@@ -254,14 +236,6 @@ class SettingsTab(ctk.CTkFrame):
         
         ctk.CTkFrame(shortcut_frame, height=6, fg_color="transparent").pack()
     
-    def _browse_tesseract(self):
-        file_path = filedialog.askopenfilename(
-            title="选择 Tesseract 可执行文件",
-            filetypes=[("可执行文件", "*.exe"), ("所有文件", "*.*")]
-        )
-        if file_path:
-            self.tesseract_path.set(file_path)
-    
     def _browse_project_path(self):
         folder_path = filedialog.askdirectory(
             title="选择默认项目保存位置"
@@ -350,7 +324,6 @@ class SettingsTab(ctk.CTkFrame):
     
     def get_settings(self):
         return {
-            "tesseract_path": self.tesseract_path.get(),
             "alarm_sound_path": self.alarm_sound_path.get(),
             "alarm_volume": self.alarm_volume.get(),
             "default_project_path": self.default_project_path.get(),
@@ -362,20 +335,11 @@ class SettingsTab(ctk.CTkFrame):
         }
     
     def load_settings(self, settings):
-        default_tesseract = find_tesseract() or ""
         default_alarm_sound = ResourceManager().get_alarm_sound_path()
         if not os.path.exists(default_alarm_sound):
             default_alarm_sound = ""
         
         default_project_path = self._get_default_project_path()
-        
-        if "tesseract_path" in settings and settings["tesseract_path"]:
-            if os.path.exists(settings["tesseract_path"]):
-                self.tesseract_path.set(settings["tesseract_path"])
-            else:
-                self.tesseract_path.set(default_tesseract)
-        else:
-            self.tesseract_path.set(default_tesseract)
         
         if "alarm_sound_path" in settings and settings["alarm_sound_path"]:
             if os.path.exists(settings["alarm_sound_path"]):

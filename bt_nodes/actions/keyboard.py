@@ -40,9 +40,9 @@ class KeyPressNode(ActionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["key"] = self.key
-        data["config"]["extra"]["action"] = self.action
-        data["config"]["extra"]["duration"] = self.duration
+        data["config"]["key"] = self.key
+        data["config"]["action"] = self.action
+        data["config"]["duration"] = self.duration
         return data
 
     @classmethod

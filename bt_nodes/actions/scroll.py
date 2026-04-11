@@ -33,10 +33,10 @@ class MouseScrollNode(ActionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["amount"] = self.amount
-        data["config"]["extra"]["position"] = self.position
-        data["config"]["extra"]["use_blackboard"] = self.use_blackboard
-        data["config"]["extra"]["position_key"] = self.position_key
+        data["config"]["amount"] = self.amount
+        data["config"]["position"] = self.position
+        data["config"]["use_blackboard"] = self.use_blackboard
+        data["config"]["position_key"] = self.position_key
         return data
 
     @classmethod

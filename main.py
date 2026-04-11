@@ -3,7 +3,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-VERSION = "v1.0.1"
+VERSION = "v1.1.0"
 
 import customtkinter as ctk
 from bt_gui.app import BehaviorTreeApp
@@ -28,8 +28,65 @@ def ensure_workspace_exists():
         print(f"[WARN] 无法创建workspace文件夹: {e}")
 
 
+def check_vcredist():
+    """检查 Visual C++ Redistributable 运行时库"""
+    try:
+        import onnxruntime
+        return True
+    except ImportError as e:
+        if "DLL load failed" in str(e) or "onnxruntime_pybind11_state" in str(e):
+            return False
+        raise
+    except Exception:
+        return False
+
+
+def initialize_ocr():
+    """初始化OCR引擎"""
+    try:
+        if not check_vcredist():
+            import tkinter as tk
+            from tkinter import messagebox
+            
+            root = tk.Tk()
+            root.withdraw()
+            
+            messagebox.showwarning(
+                "缺少运行时库",
+                "程序检测到缺少 Visual C++ Redistributable 运行时库。\n\n"
+                "OCR 相关功能将无法使用。\n\n"
+                "请下载并安装：\n"
+                "https://aka.ms/vs/17/release/vc_redist.x64.exe\n\n"
+                "安装后重启程序即可使用 OCR 功能。\n\n"
+                "其他功能不受影响，可正常使用。"
+            )
+            
+            root.destroy()
+            
+            from bt_utils.ocr_manager import OCRManager
+            OCRManager.set_unavailable("缺少 Visual C++ Redistributable 运行时库")
+            
+            print("[WARN] OCR功能不可用：缺少 Visual C++ Redistributable 运行时库")
+            return False
+        
+        from bt_utils.ocr_manager import OCRManager
+        OCRManager.initialize()
+        print("[INFO] OCR引擎初始化成功")
+        return True
+        
+    except Exception as e:
+        print(f"[WARN] OCR引擎初始化失败: {e}")
+        
+        from bt_utils.ocr_manager import OCRManager
+        OCRManager.set_unavailable(str(e))
+        
+        return False
+
+
 def main():
     ensure_workspace_exists()
+    
+    initialize_ocr()
     
     register_all_nodes()
     

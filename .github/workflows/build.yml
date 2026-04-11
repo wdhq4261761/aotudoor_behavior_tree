@@ -1,6 +1,7 @@
 # GitHub Actions 配置文件
 # 实现 Windows 标准版和DD版的自动构建
 # 适配模块化架构 v2.3.0
+# 使用 RapidOCR 替代 Tesseract
 
 name: AutoDoor BehaviorTree Build and Release
 
@@ -59,19 +60,10 @@ jobs:
           }
         }
 
-    - name: Verify tesseract directory
+    - name: Verify RapidOCR installation
       run: |
-        if (Test-Path "${{ github.workspace }}\tesseract") {
-          Write-Host "Tesseract directory found"
-          if (Test-Path "${{ github.workspace }}\tesseract\tesseract.exe") {
-            Write-Host "Tesseract executable found"
-            & "${{ github.workspace }}\tesseract\tesseract.exe" --version
-          }
-          if (Test-Path "${{ github.workspace }}\tesseract\tessdata") {
-            Write-Host "Tessdata directory found"
-            Get-ChildItem "${{ github.workspace }}\tesseract\tessdata" | Where-Object { $_.Name -match '\.traineddata' } | Select-Object Name
-          }
-        }
+        python -c "import rapidocr; print('RapidOCR version:', rapidocr.__version__)"
+        python -c "import onnxruntime; print('ONNX Runtime version:', onnxruntime.__version__)"
 
     - name: Build Standard Version with PyInstaller
       env:
@@ -147,11 +139,10 @@ jobs:
           exit 1
         }
 
-    - name: Verify tesseract directory
+    - name: Verify RapidOCR installation
       run: |
-        if (Test-Path "${{ github.workspace }}\tesseract") {
-          Write-Host "Tesseract directory found"
-        }
+        python -c "import rapidocr; print('RapidOCR version:', rapidocr.__version__)"
+        python -c "import onnxruntime; print('ONNX Runtime version:', onnxruntime.__version__)"
 
     - name: Build DD Version with PyInstaller
       env:
@@ -271,7 +262,7 @@ jobs:
           echo "$UPDATE_CONTENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         else
-          DEFAULT_CONTENT="AutoDoor BehaviorTree v${{ steps.get_version.outputs.VERSION }}\n\n## Version Description\n- **Normal Version**: Uses PyAutoGUI, suitable for general applications\n- **Game Version**: Uses DD Virtual Keyboard, suitable for DirectInput games\n\n## Download Files\n- autodoor-behaviortree-${{ steps.get_version.outputs.VERSION }}-normal.zip (Normal)\n- autodoor-behaviortree-${{ steps.get_version.outputs.VERSION }}-game.zip (Game Version)"
+          DEFAULT_CONTENT="AutoDoor BehaviorTree v${{ steps.get_version.outputs.VERSION }}\n\n## Version Description\n- **Normal Version**: Uses PyAutoGUI, suitable for general applications\n- **Game Version**: Uses DD Virtual Keyboard, suitable for DirectInput games\n\n## OCR Engine\n- Uses RapidOCR (based on ONNX Runtime)\n- Faster and more accurate than Tesseract\n- No external dependencies required\n\n## Download Files\n- autodoor-behaviortree-${{ steps.get_version.outputs.VERSION }}-normal.zip (Normal)\n- autodoor-behaviortree-${{ steps.get_version.outputs.VERSION }}-game.zip (Game Version)"
           echo "UPDATE_CONTENT<<EOF" >> $GITHUB_OUTPUT
           echo "$DEFAULT_CONTENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

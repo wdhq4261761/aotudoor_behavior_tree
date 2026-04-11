@@ -20,28 +20,6 @@ def get_version():
 
 VERSION = get_version()
 
-tesseract_files = []
-tesseract_dir = os.path.join(project_root, 'tesseract')
-
-if os.path.exists(tesseract_dir):
-    for root, _, files in os.walk(tesseract_dir):
-        for file in files:
-            file_path = os.path.join(root, file)
-            dest_dir = os.path.join('tesseract', os.path.relpath(root, tesseract_dir))
-            
-            if (file == 'tesseract' or file == 'tesseract.exe'):
-                tesseract_files.append((file_path, dest_dir))
-                continue
-            if file.endswith('.exe') and file != 'tesseract.exe':
-                continue
-            if file.endswith('.html'):
-                continue
-            if root.endswith('tessdata/configs') or root.endswith('tessdata/tessconfigs'):
-                continue
-            
-            tesseract_files.append((file_path, dest_dir))
-    print(f"Collected {len(tesseract_files)} tesseract files")
-
 data_files = [
     (os.path.join(project_root, 'assets/sounds/alarm.mp3'), 'assets/sounds'),
     (os.path.join(project_root, 'assets/sounds/temp_reversed.mp3'), 'assets/sounds'),
@@ -49,7 +27,7 @@ data_files = [
     (os.path.join(project_root, 'assets/icons/autodoor.png'), 'assets/icons'),
     (os.path.join(project_root, 'config/settings.json'), 'config'),
     (os.path.join(project_root, 'drivers/DD64.dll'), 'drivers'),
-] + tesseract_files
+]
 
 binaries = []
 
@@ -124,7 +102,8 @@ a = Analysis(
         'PIL',
         'PIL.Image',
         'PIL.ImageGrab',
-        'pytesseract',
+        'rapidocr',
+        'onnxruntime',
         'screeninfo',
         'screeninfo.common',
         'pynput',
@@ -156,7 +135,7 @@ a = Analysis(
         'sklearn', 'xgboost', 'lightgbm', 'catboost', 'seaborn',
         'statsmodels', 'plotly', 'bokeh', 'networkx', 'nltk',
         'spacy', 'transformers', 'torchvision', 'torchaudio', 'onnx',
-        'onnxruntime', 'jax', 'jaxlib', 'timm', 'diffusers', 'peft',
+        'jax', 'jaxlib', 'timm', 'diffusers', 'peft',
         'gradio', 'streamlit', 'dash',
         
         'flask', 'django', 'fastapi', 'uvicorn', 'gunicorn',

@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple
 import os
 import time
 
@@ -134,22 +134,24 @@ class ExecutionContext:
 
         self._input_controller.mouse_scroll(amount, position)
 
-    def perform_ocr(self, image, keywords: str, language: str = "eng") -> tuple:
+    def perform_ocr(self, image, keywords: str, language: str = "eng", 
+                    region: Tuple[int, int, int, int] = None) -> tuple:
         """执行OCR识别
 
         Args:
             image: PIL.Image 图像
             keywords: 关键词（逗号分隔）
             language: OCR语言
+            region: 截图区域 (left, top, right, bottom)，用于坐标转换
 
         Returns:
-            (是否找到, 位置) 元组
+            (是否找到, 位置, 所有识别文本) 元组
         """
         if self._ocr_manager is None:
             from bt_utils.ocr_manager import OCRManager
             self._ocr_manager = OCRManager()
 
-        return self._ocr_manager.recognize(image, keywords, language)
+        return self._ocr_manager.recognize(image, keywords, language, region=region)
     
     def resolve_path(self, relative_path: str) -> str:
         """解析相对路径为绝对路径

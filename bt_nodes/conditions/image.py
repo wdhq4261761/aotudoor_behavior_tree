@@ -82,9 +82,9 @@ class ImageConditionNode(ConditionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["template_path"] = self.template_path
-        data["config"]["extra"]["region"] = self.region
-        data["config"]["extra"]["threshold"] = self.threshold
+        data["config"]["template_path"] = self.template_path
+        data["config"]["region"] = self.region
+        data["config"]["threshold"] = self.threshold
         return data
 
     @classmethod

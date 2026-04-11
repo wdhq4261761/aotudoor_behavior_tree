@@ -102,11 +102,11 @@ class AlarmNode(ActionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["sound_path"] = self.sound_path
-        data["config"]["extra"]["volume"] = self.volume
-        data["config"]["extra"]["wait_complete"] = self.wait_complete
-        data["config"]["extra"]["repeat_count"] = self.repeat_count
-        data["config"]["extra"]["interval_ms"] = self.interval_ms
+        data["config"]["sound_path"] = self.sound_path
+        data["config"]["volume"] = self.volume
+        data["config"]["wait_complete"] = self.wait_complete
+        data["config"]["repeat_count"] = self.repeat_count
+        data["config"]["interval_ms"] = self.interval_ms
         return data
 
     @classmethod

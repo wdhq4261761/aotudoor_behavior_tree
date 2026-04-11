@@ -40,7 +40,7 @@ class DelayNode(ActionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["duration_ms"] = self.duration_ms
+        data["config"]["duration_ms"] = self.duration_ms
         return data
 
     @classmethod

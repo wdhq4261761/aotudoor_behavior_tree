@@ -197,10 +197,10 @@ class CodeNode(ActionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["code_path"] = self.code_path
-        data["config"]["extra"]["code_type"] = self.code_type
-        data["config"]["extra"]["args"] = self.args
-        data["config"]["extra"]["wait_complete"] = self.wait_complete
+        data["config"]["code_path"] = self.code_path
+        data["config"]["code_type"] = self.code_type
+        data["config"]["args"] = self.args
+        data["config"]["wait_complete"] = self.wait_complete
         return data
 
     @classmethod

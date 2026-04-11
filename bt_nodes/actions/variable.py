@@ -54,9 +54,9 @@ class SetVariableNode(ActionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["variable_name"] = self.variable_name
-        data["config"]["extra"]["variable_value"] = self.variable_value
-        data["config"]["extra"]["operation"] = self.operation
+        data["config"]["variable_name"] = self.variable_name
+        data["config"]["variable_value"] = self.variable_value
+        data["config"]["operation"] = self.operation
         return data
 
     @classmethod

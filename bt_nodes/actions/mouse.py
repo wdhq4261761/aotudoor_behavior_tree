@@ -100,14 +100,14 @@ class MouseClickNode(ActionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["button"] = self.button
-        data["config"]["extra"]["position"] = self.position
-        data["config"]["extra"]["action"] = self.action
-        data["config"]["extra"]["duration"] = self.duration
-        data["config"]["extra"]["use_blackboard"] = self.use_blackboard
-        data["config"]["extra"]["position_key"] = self.position_key
-        data["config"]["extra"]["click_count"] = self.click_count
-        data["config"]["extra"]["click_interval"] = self.click_interval
+        data["config"]["button"] = self.button
+        data["config"]["position"] = self.position
+        data["config"]["action"] = self.action
+        data["config"]["duration"] = self.duration
+        data["config"]["use_blackboard"] = self.use_blackboard
+        data["config"]["position_key"] = self.position_key
+        data["config"]["click_count"] = self.click_count
+        data["config"]["click_interval"] = self.click_interval
         return data
 
     @classmethod
@@ -231,16 +231,16 @@ class MouseMoveNode(ActionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["position"] = self.position
-        data["config"]["extra"]["relative"] = self.relative
-        data["config"]["extra"]["use_blackboard"] = self.use_blackboard
-        data["config"]["extra"]["position_key"] = self.position_key
-        data["config"]["extra"]["move_type"] = self.move_type
-        data["config"]["extra"]["drag_button"] = self.drag_button
-        data["config"]["extra"]["end_position"] = self.end_position
-        data["config"]["extra"]["use_blackboard_end"] = self.use_blackboard_end
-        data["config"]["extra"]["position_key_end"] = self.position_key_end
-        data["config"]["extra"]["drag_duration"] = self.drag_duration
+        data["config"]["position"] = self.position
+        data["config"]["relative"] = self.relative
+        data["config"]["use_blackboard"] = self.use_blackboard
+        data["config"]["position_key"] = self.position_key
+        data["config"]["move_type"] = self.move_type
+        data["config"]["drag_button"] = self.drag_button
+        data["config"]["end_position"] = self.end_position
+        data["config"]["use_blackboard_end"] = self.use_blackboard_end
+        data["config"]["position_key_end"] = self.position_key_end
+        data["config"]["drag_duration"] = self.drag_duration
         return data
 
     @classmethod

@@ -103,9 +103,9 @@ class VariableConditionNode(ConditionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["variable_name"] = self.variable_name
-        data["config"]["extra"]["operator"] = self.operator
-        data["config"]["extra"]["target_value"] = self.target_value
+        data["config"]["variable_name"] = self.variable_name
+        data["config"]["operator"] = self.operator
+        data["config"]["target_value"] = self.target_value
         return data
 
     @classmethod

@@ -46,9 +46,9 @@ class ColorConditionNode(ConditionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["extra"]["target_color"] = self.target_color
-        data["config"]["extra"]["region"] = self.region
-        data["config"]["extra"]["tolerance"] = self.tolerance
+        data["config"]["target_color"] = self.target_color
+        data["config"]["region"] = self.region
+        data["config"]["tolerance"] = self.tolerance
         return data
 
     @classmethod
