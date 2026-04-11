@@ -5,7 +5,7 @@ block_cipher = None
 import os
 import sys
 import re
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 project_root = os.path.abspath('.')
 
 def get_version():
@@ -27,7 +27,7 @@ data_files = [
     (os.path.join(project_root, 'assets/icons/autodoor.png'), 'assets/icons'),
     (os.path.join(project_root, 'config/settings.json'), 'config'),
     (os.path.join(project_root, 'drivers/DD64.dll'), 'drivers'),
-]
+] + collect_data_files('rapidocr')
 
 binaries = []
 
@@ -157,6 +157,12 @@ a = Analysis(
     noarchive=False,
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exclude_binaries = [
+    'onnxruntime_providers_cuda.dll',
+    'onnxruntime_providers_tensorrt.dll',
+]
+a.binaries = [x for x in a.binaries if not any(ex in x[0] for ex in exclude_binaries)]
 
 exe = EXE(
     pyz,
