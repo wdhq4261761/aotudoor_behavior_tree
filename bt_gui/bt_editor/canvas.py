@@ -46,6 +46,9 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         self._drag_start = (0, 0)
         self._drag_start_pos = (0, 0)
         self._drag_start_positions: Dict[str, tuple] = {}
+        self._click_pos: Optional[tuple] = None
+        self._click_node_id: Optional[str] = None
+        self._drag_threshold = 5
         
         self._panning = False
         self._pan_start = (0, 0)
@@ -171,23 +174,10 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                 return
             
             if node.contains_point(x, y):
-                if node_id in self.selected_nodes:
-                    self._dragging = True
-                    self._drag_node = node_id
-                    self._drag_start = (x - node.x, y - node.y)
-                    self._drag_start_pos = (node.x, node.y)
-                    self._drag_start_positions = {}
-                    for nid in self.selected_nodes:
-                        if nid in self.nodes:
-                            n = self.nodes[nid]
-                            self._drag_start_positions[nid] = (n.x, n.y)
-                else:
-                    self._select_node(node_id)
-                    self._dragging = True
-                    self._drag_node = node_id
-                    self._drag_start = (x - node.x, y - node.y)
-                    self._drag_start_pos = (node.x, node.y)
-                    self._drag_start_positions = {node_id: (node.x, node.y)}
+                self._click_pos = (x, y)
+                self._click_node_id = node_id
+                if node_id not in self.selected_nodes:
+                    self._select_node(node_id, trigger_callback=False)
                 return
         
         clicked_connection = self._find_connection_at(x, y)
@@ -283,10 +273,38 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
             self._update_selection_box(x, y)
             return
         
-        if self._dragging and self._drag_node:
-            if self.property_panel and self.property_panel.is_loading():
+        if not self._dragging and self._click_pos and self._click_node_id:
+            mouse_pressed = event.state & 0x0100
+            if not mouse_pressed:
+                self._click_pos = None
+                self._click_node_id = None
                 return
             
+            dx = x - self._click_pos[0]
+            dy = y - self._click_pos[1]
+            distance = math.sqrt(dx*dx + dy*dy)
+            
+            if distance >= self._drag_threshold:
+                if self._click_node_id in self.nodes and self._click_node_id in self.selected_nodes:
+                    self._dragging = True
+                    self._drag_node = self._click_node_id
+                    node = self.nodes[self._click_node_id]
+                    self._drag_start = (self._click_pos[0] - node.x, self._click_pos[1] - node.y)
+                    self._drag_start_pos = (node.x, node.y)
+                    self._drag_start_positions = {}
+                    for nid in self.selected_nodes:
+                        if nid in self.nodes:
+                            n = self.nodes[nid]
+                            self._drag_start_positions[nid] = (n.x, n.y)
+        
+        if self._dragging and self._drag_node:
+            mouse_pressed = event.state & 0x0100
+            if not mouse_pressed:
+                self._dragging = False
+                self._drag_node = None
+                self._click_pos = None
+                self._click_node_id = None
+                return
             dx = x - self._drag_start[0] - self._drag_start_pos[0]
             dy = y - self._drag_start[1] - self._drag_start_pos[1]
             
@@ -346,8 +364,15 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                     node.x, node.y
                 )
         
+        if not self._dragging and self._click_node_id:
+            if self._click_node_id in self.nodes and self.on_node_select:
+                node = self.nodes[self._click_node_id]
+                self.on_node_select(self._click_node_id, node.node_type)
+        
         self._dragging = False
         self._drag_node = None
+        self._click_pos = None
+        self._click_node_id = None
         self._panning = False
     
     def _on_scroll(self, event):
@@ -434,14 +459,14 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                 self._edit_node_properties(node_id)
                 return
     
-    def _select_node(self, node_id: str):
+    def _select_node(self, node_id: str, trigger_callback: bool = True):
         self._deselect_all()
         self.selected_node = node_id
         self.selected_nodes = [node_id]
         node = self.nodes[node_id]
         node.set_selected(True)
         
-        if self.on_node_select:
+        if trigger_callback and self.on_node_select:
             self.on_node_select(node_id, node.node_type)
     
     def _select_node_add(self, node_id: str):
@@ -923,9 +948,27 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         if not self.selected_nodes:
             return
         
+        from tkinter import messagebox
+        
+        nodes_to_delete = []
+        protected_nodes = []
+        
         for node_id in list(self.selected_nodes):
             if node_id in self.nodes:
-                self.remove_node(node_id)
+                node_item = self.nodes[node_id]
+                # 检查节点是否受保护
+                if hasattr(node_item, 'node') and node_item.node and node_item.node.is_protected():
+                    protected_nodes.append(node_id)
+                    continue
+                nodes_to_delete.append(node_id)
+        
+        # 如果有受保护的节点,显示提示
+        if protected_nodes:
+            messagebox.showwarning("无法删除", "开始节点不可删除")
+        
+        # 删除非保护节点
+        for node_id in nodes_to_delete:
+            self.remove_node(node_id)
     
     def _copy_selected_nodes_to_clipboard(self):
         if not self.selected_nodes:
