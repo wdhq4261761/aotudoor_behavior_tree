@@ -106,6 +106,7 @@ class Theme:
         'decorator': {'bg': '#B45309', 'hover': '#92400E', 'text': '#FFFFFF'},
         'condition': {'bg': '#BE185D', 'hover': '#9D174D', 'text': '#FFFFFF'},
         'action': {'bg': '#047857', 'hover': '#065F46', 'text': '#FFFFFF'},
+        'start': {'bg': '#F59E0B', 'hover': '#D97706', 'text': '#FFFFFF'},
     }
     
     @classmethod
