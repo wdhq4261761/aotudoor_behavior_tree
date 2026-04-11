@@ -193,6 +193,10 @@ class NodeItem:
         else:
             base_name = NODE_DISPLAY_NAMES.get(self.node_type, self.node_type)
         
+        # 为StartNode添加特殊图标
+        if self.node_type == "StartNode":
+            base_name = "▶ " + base_name
+        
         available_width = self.width - 48
         scaled_available_width = self._scale(available_width)
         
