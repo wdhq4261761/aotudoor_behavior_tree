@@ -1084,23 +1084,16 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         x = canvas_width / 2
         y = canvas_height * 0.2
         
-        # 构建节点数据
-        node_data = {
-            "id": start_node.node_id,
-            "type": "StartNode",
-            "name": "开始",
-            "enabled": True,
-            "config": {
-                "repeat_count": -1
-            },
-            "position": {
-                "x": x,
-                "y": y
-            }
-        }
-        
         # 添加到画布
-        self.canvas.add_node(node_data)
+        self.canvas.add_node(
+            node_id=start_node.node_id,
+            node_type="StartNode",
+            x=x,
+            y=y,
+            name="开始",
+            config={"repeat_count": -1},
+            enabled=True
+        )
         
         if script_path and os.path.exists(script_path):
             self._import_old_script(script_path)
