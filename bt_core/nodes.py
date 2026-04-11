@@ -4,6 +4,7 @@ import uuid
 
 from .status import NodeStatus
 from .config import NodeConfig
+from bt_utils.log_manager import LogManager
 
 if TYPE_CHECKING:
     from .context import ExecutionContext
@@ -30,6 +31,7 @@ class Node(ABC):
         self.children: List["Node"] = []
         self.parent: Optional["Node"] = None
         self._tick_count = 0
+        self._is_protected = False  # 节点保护标记,防止被删除
         self._retry_count = 0
         self._repeat_count = 0
         self._start_time: Optional[float] = None
@@ -89,6 +91,12 @@ class Node(ABC):
             if repeat_count == -1 or self._repeat_count < repeat_count:
                 self._repeat_count += 1
                 self._reset_for_repeat()
+                if isinstance(self, CompositeNode):
+                    LogManager.instance().log_info(
+                        node_type="重复执行",
+                        node_name=self.name,
+                        message=f"开始第{self._repeat_count}次重复"
+                    )
                 return NodeStatus.RUNNING
 
         if status == NodeStatus.SUCCESS:
@@ -129,6 +137,15 @@ class Node(ABC):
         self._start_time = None
         for child in self.children:
             child.reset()
+
+    def is_protected(self) -> bool:
+        """
+        检查节点是否受保护(不可删除)
+        
+        Returns:
+            bool: True表示受保护,False表示可删除
+        """
+        return self._is_protected
 
     def abort(self, context: "ExecutionContext") -> None:
         """中止节点执行
@@ -225,7 +242,7 @@ class SequenceNode(CompositeNode):
         super().__init__(node_id, config)
         self.continue_on_failure = self.config.get_bool("continue_on_failure", False)
         self.child_interval = self.config.get_int("child_interval", 0)
-        self._last_child_time = 0
+        self._last_child_finish_time: Optional[float] = None
 
     def tick(self, context: "ExecutionContext") -> NodeStatus:
         return self._execute_with_decorators(context, self._tick_internal)
@@ -245,11 +262,10 @@ class SequenceNode(CompositeNode):
                 self.current_index += 1
                 continue
 
-            if self.child_interval > 0:
+            if self.child_interval > 0 and self._last_child_finish_time is not None:
                 current_time = context.elapsed_time * 1000
-                if current_time - self._last_child_time < self.child_interval:
+                if current_time - self._last_child_finish_time < self.child_interval:
                     return NodeStatus.RUNNING
-                self._last_child_time = current_time
 
             status = child.tick(context)
 
@@ -260,6 +276,7 @@ class SequenceNode(CompositeNode):
                 if self.continue_on_failure:
                     has_failure = True
                     self.current_index += 1
+                    self._last_child_finish_time = context.elapsed_time * 1000
                     continue
                 else:
                     self.current_index = 0
@@ -271,6 +288,7 @@ class SequenceNode(CompositeNode):
                     return NodeStatus.FAILURE
 
             self.current_index += 1
+            self._last_child_finish_time = context.elapsed_time * 1000
 
         self.current_index = 0
         
@@ -290,7 +308,7 @@ class SequenceNode(CompositeNode):
 
     def reset(self, reset_counters: bool = True) -> None:
         super().reset(reset_counters)
-        self._last_child_time = 0
+        self._last_child_finish_time = None
 
 
 class SelectorNode(CompositeNode):
@@ -437,6 +455,16 @@ class ParallelNode(CompositeNode):
     def reset(self, reset_counters: bool = True) -> None:
         """重置节点状态"""
         super().reset(reset_counters)
+        self.cached_statuses.clear()
+    
+    def _reset_for_retry(self) -> None:
+        """重试时重置状态（保留重试计数器）"""
+        super()._reset_for_retry()
+        self.cached_statuses.clear()
+    
+    def _reset_for_repeat(self) -> None:
+        """重复执行时重置状态（保留重复计数器）"""
+        super()._reset_for_repeat()
         self.cached_statuses.clear()
 
 
