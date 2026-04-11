@@ -24,6 +24,10 @@ class OCRTestMainWindow(ctk.CTk):
         self.preprocessed_image: Optional[PILImage.Image] = None
         self.test_history = []
         
+        self.zoom_level = 1.0
+        self.min_zoom = 0.25
+        self.max_zoom = 4.0
+        
         self._create_ui()
         self._setup_layout()
         
@@ -105,6 +109,51 @@ class OCRTestMainWindow(ctk.CTk):
         )
         label.pack(pady=10)
         
+        zoom_frame = ctk.CTkFrame(self.screenshot_panel)
+        zoom_frame.pack(fill="x", padx=10, pady=5)
+        
+        self.btn_zoom_out = ctk.CTkButton(
+            zoom_frame,
+            text="-",
+            width=30,
+            command=self._zoom_out
+        )
+        self.btn_zoom_out.pack(side="left", padx=2)
+        
+        self.zoom_slider = ctk.CTkSlider(
+            zoom_frame,
+            from_=self.min_zoom,
+            to=self.max_zoom,
+            number_of_steps=30,
+            width=200
+        )
+        self.zoom_slider.set(self.zoom_level)
+        self.zoom_slider.pack(side="left", padx=5, fill="x", expand=True)
+        self.zoom_slider.configure(command=self._on_zoom_slider_change)
+        
+        self.btn_zoom_in = ctk.CTkButton(
+            zoom_frame,
+            text="+",
+            width=30,
+            command=self._zoom_in
+        )
+        self.btn_zoom_in.pack(side="left", padx=2)
+        
+        self.zoom_label = ctk.CTkLabel(
+            zoom_frame,
+            text="100%",
+            width=60
+        )
+        self.zoom_label.pack(side="left", padx=5)
+        
+        self.btn_reset_zoom = ctk.CTkButton(
+            zoom_frame,
+            text="重置",
+            width=50,
+            command=self._reset_zoom
+        )
+        self.btn_reset_zoom.pack(side="left", padx=2)
+        
         self.original_image_label = ctk.CTkLabel(
             self.screenshot_panel,
             text="原始图像",
@@ -119,6 +168,9 @@ class OCRTestMainWindow(ctk.CTk):
             height=200
         )
         self.original_image_display.pack(pady=5, padx=10)
+        self.original_image_display.bind("<MouseWheel>", self._on_mouse_wheel)
+        self.original_image_display.bind("<Button-4>", self._on_mouse_wheel)
+        self.original_image_display.bind("<Button-5>", self._on_mouse_wheel)
         
         self.preprocessed_image_label = ctk.CTkLabel(
             self.screenshot_panel,
@@ -134,6 +186,9 @@ class OCRTestMainWindow(ctk.CTk):
             height=200
         )
         self.preprocessed_image_display.pack(pady=5, padx=10)
+        self.preprocessed_image_display.bind("<MouseWheel>", self._on_mouse_wheel)
+        self.preprocessed_image_display.bind("<Button-4>", self._on_mouse_wheel)
+        self.preprocessed_image_display.bind("<Button-5>", self._on_mouse_wheel)
         
         self.btn_start_test = ctk.CTkButton(
             self.screenshot_panel,
@@ -188,6 +243,46 @@ class OCRTestMainWindow(ctk.CTk):
             width=200
         )
         language_menu.pack(pady=5)
+        
+        psm_label = ctk.CTkLabel(
+            self.param_panel,
+            text="PSM模式:",
+            font=("Arial", 10)
+        )
+        psm_label.pack(pady=2)
+        
+        self.psm_var = ctk.StringVar(value="7")
+        psm_menu = ctk.CTkOptionMenu(
+            self.param_panel,
+            variable=self.psm_var,
+            values=["3", "6", "7", "11", "12"],
+            width=200
+        )
+        psm_menu.pack(pady=2)
+        
+        oem_label = ctk.CTkLabel(
+            self.param_panel,
+            text="OEM模式:",
+            font=("Arial", 10)
+        )
+        oem_label.pack(pady=2)
+        
+        self.oem_var = ctk.StringVar(value="3")
+        oem_menu = ctk.CTkOptionMenu(
+            self.param_panel,
+            variable=self.oem_var,
+            values=["0", "1", "2", "3"],
+            width=200
+        )
+        oem_menu.pack(pady=2)
+        
+        self.multi_psm_var = ctk.BooleanVar(value=True)
+        multi_psm_check = ctk.CTkCheckBox(
+            self.param_panel,
+            text="多PSM模式尝试",
+            variable=self.multi_psm_var
+        )
+        multi_psm_check.pack(pady=5)
         
         test_label = ctk.CTkLabel(
             self.param_panel,
@@ -475,7 +570,10 @@ class OCRTestMainWindow(ctk.CTk):
                 "binary_threshold": int(self.threshold_slider.get())
             },
             "ocr": {
-                "language": self.language_var.get()
+                "language": self.language_var.get(),
+                "psm": int(self.psm_var.get()),
+                "oem": int(self.oem_var.get()),
+                "multi_psm": self.multi_psm_var.get()
             },
             "test": {
                 "keywords": self.keywords_entry.get(),
@@ -493,6 +591,9 @@ class OCRTestMainWindow(ctk.CTk):
         
         ocr = params.get('ocr', {})
         self.language_var.set(ocr.get('language', 'chi_sim'))
+        self.psm_var.set(str(ocr.get('psm', 7)))
+        self.oem_var.set(str(ocr.get('oem', 3)))
+        self.multi_psm_var.set(ocr.get('multi_psm', True))
         
         test = params.get('test', {})
         self.keywords_entry.delete(0, 'end')
@@ -505,8 +606,8 @@ class OCRTestMainWindow(ctk.CTk):
         if not self.current_image:
             return
         
-        display_width = 380
-        display_height = 200
+        display_width = int(380 * self.zoom_level)
+        display_height = int(200 * self.zoom_level)
         
         img_copy = self.current_image.copy()
         img_copy.thumbnail((display_width, display_height), PILImage.Resampling.LANCZOS)
@@ -558,6 +659,39 @@ class OCRTestMainWindow(ctk.CTk):
             self.stats_textbox.insert("end", f"成功次数: {stats.success_count}\n")
             self.stats_textbox.insert("end", f"成功率: {stats.success_rate:.2%}\n")
             self.stats_textbox.insert("end", f"平均耗时: {stats.avg_time:.2f} ms\n")
+    
+    def _zoom_in(self):
+        """放大图像"""
+        new_zoom = min(self.zoom_level + 0.25, self.max_zoom)
+        self._set_zoom(new_zoom)
+    
+    def _zoom_out(self):
+        """缩小图像"""
+        new_zoom = max(self.zoom_level - 0.25, self.min_zoom)
+        self._set_zoom(new_zoom)
+    
+    def _on_zoom_slider_change(self, value):
+        """滑块缩放变化"""
+        self._set_zoom(float(value))
+    
+    def _on_mouse_wheel(self, event):
+        """鼠标滚轮缩放"""
+        if event.delta > 0:
+            new_zoom = min(self.zoom_level + 0.1, self.max_zoom)
+        else:
+            new_zoom = max(self.zoom_level - 0.1, self.min_zoom)
+        self._set_zoom(new_zoom)
+    
+    def _set_zoom(self, zoom_level: float):
+        """设置缩放级别
+        
+        Args:
+            zoom_level: 缩放级别 (0.25-4.0)
+        """
+        self.zoom_level = zoom_level
+        self.zoom_label.configure(text=f"{int(zoom_level * 100)}%")
+        self.zoom_slider.set(zoom_level)
+        self._update_image_display()
 
 
 def main():

@@ -149,14 +149,6 @@ class EditorToolbar(ctk.CTkFrame):
             **btn_config
         )
         self.clear_btn.pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
-        
-        self.reset_view_btn = ctk.CTkButton(
-            edit_frame,
-            text="重置视图",
-            command=self._on_reset_view_click,
-            **btn_config
-        )
-        self.reset_view_btn.pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
     
     def _create_separator(self, parent):
         sep = ctk.CTkFrame(
@@ -202,13 +194,31 @@ class EditorToolbar(ctk.CTkFrame):
         status_frame = ctk.CTkFrame(parent, fg_color="transparent")
         status_frame.pack(side="left")
         
-        self.file_path_label = ctk.CTkLabel(
+        self.file_path_entry = ctk.CTkEntry(
             status_frame,
-            text="未保存",
+            textvariable=tk.StringVar(value="未保存"),
             font=Theme.get_font('sm'),
-            text_color=self._dark_colors['text_muted']
+            text_color=self._dark_colors['text_muted'],
+            fg_color=self._dark_colors['bg_secondary'],
+            border_width=0,
+            width=200,
+            height=Theme.DIMENSIONS['button_height'],
+            state="readonly"
         )
-        self.file_path_label.pack(side="left", padx=(0, Theme.DIMENSIONS['spacing_md']))
+        self.file_path_entry.pack(side="left", padx=(0, Theme.DIMENSIONS['spacing_md']))
+        
+        ctk.CTkButton(
+            status_frame,
+            text="重置视图",
+            width=80,
+            font=Theme.get_font('sm'),
+            height=Theme.DIMENSIONS['button_height'],
+            corner_radius=Theme.DIMENSIONS['button_corner_radius'],
+            fg_color=self._dark_colors['bg_tertiary'],
+            hover_color=self._dark_colors['border'],
+            text_color=self._dark_colors['text_primary'],
+            command=self._on_reset_view_click
+        ).pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
     
     def _on_new_project_click(self):
         if self.on_new_project:
@@ -267,12 +277,26 @@ class EditorToolbar(ctk.CTkFrame):
     def set_file_path(self, file_path: Optional[str]):
         if file_path:
             import os
-            self.file_path_label.configure(text=os.path.basename(file_path))
+            self.file_path_entry.delete(0, tk.END)
+            self.file_path_entry.insert(0, os.path.basename(file_path))
         else:
-            self.file_path_label.configure(text="未保存")
+            self.file_path_entry.delete(0, tk.END)
+            self.file_path_entry.insert(0, "未保存")
     
     def set_project_path(self, project_root: Optional[str]):
         if project_root:
-            self.file_path_label.configure(text=project_root)
+            # 固定长度显示,左侧省略
+            max_length = 30
+            if len(project_root) > max_length:
+                display_text = "..." + project_root[-(max_length-3):]
+            else:
+                display_text = project_root
+            
+            self.file_path_entry.delete(0, tk.END)
+            self.file_path_entry.insert(0, display_text)
+            # 保存完整路径到tooltip
+            self.file_path_entry.tooltip = project_root
         else:
-            self.file_path_label.configure(text="未保存")
+            self.file_path_entry.delete(0, tk.END)
+            self.file_path_entry.insert(0, "未保存")
+            self.file_path_entry.tooltip = None

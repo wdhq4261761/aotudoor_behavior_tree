@@ -59,12 +59,27 @@ class OCRTester:
             
             preprocess_mode = params.get('ocr', {}).get('preprocess_mode', 'normal') if params else 'normal'
             
-            found, position = self.ocr_manager.recognize(
-                processed,
-                keywords=keywords,
-                language=language,
-                preprocess_mode=preprocess_mode
-            )
+            ocr_params = params.get('ocr', {}) if params else {}
+            psm = ocr_params.get('psm', 7)
+            oem = ocr_params.get('oem', 3)
+            multi_psm = ocr_params.get('multi_psm', True)
+            
+            if multi_psm:
+                found, position = self.ocr_manager.recognize(
+                    processed,
+                    keywords=keywords,
+                    language=language,
+                    preprocess_mode=preprocess_mode
+                )
+            else:
+                found, position = self.ocr_manager.recognize_single_psm(
+                    processed,
+                    keywords=keywords,
+                    language=language,
+                    preprocess_mode=preprocess_mode,
+                    psm=psm,
+                    oem=oem
+                )
             
             end_time = time.time()
             processing_time = (end_time - start_time) * 1000
@@ -72,7 +87,9 @@ class OCRTester:
             all_text = self.ocr_manager.get_all_text(
                 processed,
                 language=language,
-                preprocess_mode=preprocess_mode
+                preprocess_mode=preprocess_mode,
+                psm=psm,
+                oem=oem
             )
             
             return TestResult(

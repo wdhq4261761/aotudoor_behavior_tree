@@ -183,6 +183,7 @@ class OCRManager:
         """多PSM模式尝试识别
 
         PSM顺序：7(单行)→6(文本块)→11(稀疏文本)
+        OEM模式：3 (LSTM引擎，最佳识别质量)
 
         Args:
             image: 图像
@@ -196,7 +197,7 @@ class OCRManager:
         
         for psm in psm_modes:
             try:
-                config = f"--psm {psm} {config_extra}".strip()
+                config = f"--psm {psm} --oem 3 {config_extra}".strip()
                 text = pytesseract.image_to_string(image, lang=language, config=config)
                 text = text.strip()
                 
@@ -224,8 +225,66 @@ class OCRManager:
         try:
             processed = self._preprocess_image(image, language, preprocess_mode)
             
+            config = "--oem 3"
+            
             data = pytesseract.image_to_data(
-                processed, lang=language,
+                processed, lang=language, config=config,
+                output_type=pytesseract.Output.DICT
+            )
+
+            if keywords:
+                keyword_list = [k.strip().lower() for k in keywords.split(",")]
+
+                for i, text in enumerate(data["text"]):
+                    if not text:
+                        continue
+
+                    text_lower = text.lower()
+                    for keyword in keyword_list:
+                        if keyword in text_lower:
+                            x = data["left"][i] + data["width"][i] // 2
+                            y = data["top"][i] + data["height"][i] // 2
+                            
+                            if image.size != processed.size:
+                                scale_x = image.size[0] / processed.size[0]
+                                scale_y = image.size[1] / processed.size[1]
+                                x = int(x * scale_x)
+                                y = int(y * scale_y)
+                            
+                            return True, (x, y)
+
+                return False, None
+
+            return True, None
+
+        except Exception as e:
+            print(f"[WARN] OCR识别错误: {e}")
+            return False, None
+    
+    def recognize_single_psm(self, image: Image.Image, keywords: str = None,
+                             language: str = "eng",
+                             preprocess_mode: str = "normal",
+                             psm: int = 7, oem: int = 3) -> Tuple[bool, Optional[Tuple[int, int]]]:
+        """执行OCR识别（单PSM模式）
+
+        Args:
+            image: PIL.Image 图像
+            keywords: 关键词（逗号分隔）
+            language: OCR语言
+            preprocess_mode: 预处理模式 (normal/artistic)
+            psm: PSM模式
+            oem: OEM模式
+
+        Returns:
+            (是否找到, 位置坐标) 元组
+        """
+        try:
+            processed = self._preprocess_image(image, language, preprocess_mode)
+            
+            config = f"--psm {psm} --oem {oem}"
+            
+            data = pytesseract.image_to_data(
+                processed, lang=language, config=config,
                 output_type=pytesseract.Output.DICT
             )
 
@@ -348,20 +407,29 @@ class OCRManager:
         return None
 
     def get_all_text(self, image: Image.Image, language: str = "eng",
-                     preprocess_mode: str = "normal") -> str:
+                     preprocess_mode: str = "normal",
+                     psm: int = None, oem: int = None) -> str:
         """获取所有识别文本
-
+        
         Args:
             image: PIL.Image 图像
             language: OCR语言
             preprocess_mode: 预处理模式
-
+            psm: PSM模式 (可选)
+            oem: OEM模式 (可选)
+            
         Returns:
             识别文本
         """
         try:
             processed = self._preprocess_image(image, language, preprocess_mode)
-            return pytesseract.image_to_string(processed, lang=language)
+            
+            if psm is not None and oem is not None:
+                config = f"--psm {psm} --oem {oem}"
+            else:
+                config = "--oem 3"
+            
+            return pytesseract.image_to_string(processed, lang=language, config=config)
         except Exception as e:
             print(f"[WARN] OCR文本识别错误: {e}")
             return ""

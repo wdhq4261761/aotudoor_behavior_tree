@@ -1266,7 +1266,8 @@ class PropertyPanel(ctk.CTkFrame):
                 decorator_fields = CONDITION_DECORATOR_FIELDS
             elif node_type in ACTION_NODES:
                 decorator_fields = ACTION_DECORATOR_FIELDS
-            elif node_type in COMPOSITE_NODES:
+            elif node_type in COMPOSITE_NODES or decorator_fields = COMPOSITE_DECORATOR_FIELDS
+            elif node_type == "StartNode":
                 decorator_fields = COMPOSITE_DECORATOR_FIELDS
             
             if decorator_fields:
