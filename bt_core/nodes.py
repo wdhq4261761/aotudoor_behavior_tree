@@ -615,3 +615,105 @@ class ActionNode(Node):
     def reset(self, reset_counters: bool = True) -> None:
         super().reset(reset_counters)
         self._child_index = 0
+
+
+class StartNode(SequenceNode):
+    """
+    开始节点 - 行为树的根节点
+    
+    特性:
+    - 继承SequenceNode的顺序执行逻辑
+    - 失败后继续执行(不短路)
+    - 支持重复执行次数控制
+    - 不可删除、不可复制、不可剪切
+    """
+    NODE_TYPE = "StartNode"
+    
+    def __init__(self, node_id: str = None, config: NodeConfig = None):
+        super().__init__(node_id, config)
+        self.repeat_count = self.config.get_int("repeat_count", -1)  # -1表示无限循环
+        self._current_repeat = 0  # 当前重复次数
+        self._is_protected = True  # 不可删除标记
+    
+    def tick(self, context: "ExecutionContext") -> NodeStatus:
+        """
+        执行所有子节点,失败后继续执行
+        
+        与SequenceNode的区别:
+        - SequenceNode: 任一子节点失败立即返回FAILURE
+        - StartNode: 子节点失败后继续执行后续子节点
+        
+        Args:
+            context: 执行上下文
+            
+        Returns:
+            NodeStatus: 执行状态
+        """
+        if not self.children:
+            return NodeStatus.SUCCESS
+        
+        # 执行所有子节点(不短路)
+        has_running = False
+        for child in self.children:
+            if not child.config.enabled:
+                continue
+            
+            status = child.tick(context)
+            
+            # 如果有子节点正在运行,记录状态但不中断执行
+            if status == NodeStatus.RUNNING:
+                has_running = True
+        
+        # 如果有子节点正在运行,返回RUNNING
+        if has_running:
+            return NodeStatus.RUNNING
+        
+        # 所有子节点执行完毕,处理重复逻辑
+        self._current_repeat += 1
+        
+        if self.repeat_count == -1:
+            # 无限循环模式
+            self.reset()
+            return NodeStatus.RUNNING
+        elif self._current_repeat < self.repeat_count:
+            # 继续重复
+            self.reset()
+            return NodeStatus.RUNNING
+        else:
+            # 达到重复次数,执行完成
+            return NodeStatus.SUCCESS
+    
+    def reset(self, reset_counters: bool = True) -> None:
+        """重置节点状态"""
+        super().reset(reset_counters)
+        # 重置所有子节点
+        for child in self.children:
+            child.reset()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        序列化为字典
+        
+        Returns:
+            Dict[str, Any]: 节点数据字典
+        """
+        data = super().to_dict()
+        data["repeat_count"] = self.repeat_count
+        data["_is_protected"] = self._is_protected
+        return data
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "StartNode":
+        """
+        从字典反序列化
+        
+        Args:
+            data: 节点数据字典
+            
+        Returns:
+            StartNode: 节点实例
+        """
+        node = super().from_dict(data)
+        node.repeat_count = data.get("repeat_count", -1)
+        node._is_protected = data.get("_is_protected", True)
+        return node
