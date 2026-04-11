@@ -1,4 +1,5 @@
 NODE_CATEGORY_MAP = {
+    "StartNode": "start",
     "SequenceNode": "composite",
     "SelectorNode": "composite",
     "ParallelNode": "composite",
@@ -19,6 +20,7 @@ NODE_CATEGORY_MAP = {
 }
 
 NODE_DISPLAY_NAMES = {
+    "StartNode": "开始",
     "SequenceNode": "顺序",
     "SelectorNode": "选择",
     "ParallelNode": "并行",
@@ -39,6 +41,7 @@ NODE_DISPLAY_NAMES = {
 }
 
 NODE_DESCRIPTIONS = {
+    "StartNode": "行为树根节点,控制整体执行流程",
     "SequenceNode": "按顺序执行子节点",
     "SelectorNode": "选择第一个成功的子节点",
     "ParallelNode": "同时执行所有子节点",
