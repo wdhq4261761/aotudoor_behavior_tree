@@ -149,6 +149,14 @@ class EditorToolbar(ctk.CTkFrame):
             **btn_config
         )
         self.clear_btn.pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
+        
+        self.reset_view_btn = ctk.CTkButton(
+            edit_frame,
+            text="重置视图",
+            command=self._on_reset_view_click,
+            **btn_config
+        )
+        self.reset_view_btn.pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
     
     def _create_separator(self, parent):
         sep = ctk.CTkFrame(
@@ -201,19 +209,6 @@ class EditorToolbar(ctk.CTkFrame):
             text_color=self._dark_colors['text_muted']
         )
         self.file_path_label.pack(side="left", padx=(0, Theme.DIMENSIONS['spacing_md']))
-        
-        ctk.CTkButton(
-            status_frame,
-            text="重置视图",
-            width=80,
-            font=Theme.get_font('sm'),
-            height=Theme.DIMENSIONS['button_height'],
-            corner_radius=Theme.DIMENSIONS['button_corner_radius'],
-            fg_color=self._dark_colors['bg_tertiary'],
-            hover_color=self._dark_colors['border'],
-            text_color=self._dark_colors['text_primary'],
-            command=self._on_reset_view_click
-        ).pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
     
     def _on_new_project_click(self):
         if self.on_new_project:
