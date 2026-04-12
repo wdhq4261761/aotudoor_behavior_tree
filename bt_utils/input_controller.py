@@ -1,6 +1,7 @@
 import pyautogui
 import time
 import math
+import threading
 from typing import Tuple
 
 
@@ -9,6 +10,29 @@ class InputController:
 
     封装键盘和鼠标操作，提供统一的输入控制接口。
     """
+
+    _simulate_lock = threading.Lock()
+    _simulating = False
+    
+    @classmethod
+    def is_simulating(cls) -> bool:
+        """检查当前是否正在执行模拟操作
+        
+        Returns:
+            是否正在执行模拟操作
+        """
+        with cls._simulate_lock:
+            return cls._simulating
+    
+    @classmethod
+    def _set_simulating(cls, value: bool):
+        """设置模拟状态
+        
+        Args:
+            value: 是否正在执行模拟操作
+        """
+        with cls._simulate_lock:
+            cls._simulating = value
 
     def __init__(self):
         pyautogui.FAILSAFE = True
@@ -22,17 +46,21 @@ class InputController:
             action: 动作类型 (press/down/up)
             duration: 按住时长（毫秒）
         """
-        if action == "press":
-            if duration > 0:
+        self._set_simulating(True)
+        try:
+            if action == "press":
+                if duration > 0:
+                    pyautogui.keyDown(key)
+                    pyautogui.sleep(duration / 1000)
+                    pyautogui.keyUp(key)
+                else:
+                    pyautogui.press(key)
+            elif action == "down":
                 pyautogui.keyDown(key)
-                pyautogui.sleep(duration / 1000)
+            elif action == "up":
                 pyautogui.keyUp(key)
-            else:
-                pyautogui.press(key)
-        elif action == "down":
-            pyautogui.keyDown(key)
-        elif action == "up":
-            pyautogui.keyUp(key)
+        finally:
+            self._set_simulating(False)
 
     def key_down(self, key: str) -> None:
         """按下按键
@@ -40,7 +68,11 @@ class InputController:
         Args:
             key: 按键名称
         """
-        pyautogui.keyDown(key)
+        self._set_simulating(True)
+        try:
+            pyautogui.keyDown(key)
+        finally:
+            self._set_simulating(False)
 
     def key_up(self, key: str) -> None:
         """释放按键
@@ -48,7 +80,11 @@ class InputController:
         Args:
             key: 按键名称
         """
-        pyautogui.keyUp(key)
+        self._set_simulating(True)
+        try:
+            pyautogui.keyUp(key)
+        finally:
+            self._set_simulating(False)
 
     def mouse_click(self, button: str = "left", position: Tuple[int, int] = None,
                    action: str = "press", duration: int = 0) -> None:
@@ -60,20 +96,24 @@ class InputController:
             action: 动作类型 (press/down/up)
             duration: 按住时长（毫秒）
         """
-        if position:
-            pyautogui.moveTo(position[0], position[1])
+        self._set_simulating(True)
+        try:
+            if position:
+                pyautogui.moveTo(position[0], position[1])
 
-        if action == "press":
-            if duration > 0:
+            if action == "press":
+                if duration > 0:
+                    pyautogui.mouseDown(button=button)
+                    pyautogui.sleep(duration / 1000)
+                    pyautogui.mouseUp(button=button)
+                else:
+                    pyautogui.click(button=button)
+            elif action == "down":
                 pyautogui.mouseDown(button=button)
-                pyautogui.sleep(duration / 1000)
+            elif action == "up":
                 pyautogui.mouseUp(button=button)
-            else:
-                pyautogui.click(button=button)
-        elif action == "down":
-            pyautogui.mouseDown(button=button)
-        elif action == "up":
-            pyautogui.mouseUp(button=button)
+        finally:
+            self._set_simulating(False)
 
     def mouse_down(self, button: str = "left") -> None:
         """按下鼠标
@@ -81,7 +121,11 @@ class InputController:
         Args:
             button: 鼠标按钮
         """
-        pyautogui.mouseDown(button=button)
+        self._set_simulating(True)
+        try:
+            pyautogui.mouseDown(button=button)
+        finally:
+            self._set_simulating(False)
 
     def mouse_up(self, button: str = "left") -> None:
         """释放鼠标
@@ -89,7 +133,11 @@ class InputController:
         Args:
             button: 鼠标按钮
         """
-        pyautogui.mouseUp(button=button)
+        self._set_simulating(True)
+        try:
+            pyautogui.mouseUp(button=button)
+        finally:
+            self._set_simulating(False)
 
     def mouse_move(self, position: Tuple[int, int], relative: bool = False,
                    smooth: bool = False, duration: float = 0.3) -> None:

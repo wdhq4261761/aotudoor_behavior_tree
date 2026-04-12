@@ -34,10 +34,13 @@ class OCRConditionNode(ConditionNode):
                 )
                 return True
             else:
+                reason = f"未找到关键词: {self.keywords}"
+                if all_text:
+                    reason += f"，识别到的文本: {all_text}"
                 LogManager.instance().log_failure(
                     node_type="OCR检测节点",
                     node_name=self.name,
-                    reason=f"未找到关键词: {self.keywords}"
+                    reason=reason
                 )
                 return False
         except Exception as e:

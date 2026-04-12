@@ -563,9 +563,12 @@ class FileField(FieldWidget):
         
         old_path = self.full_path if self.full_path else None
         
+        resource_type = ResourceService.RESOURCE_TYPE_MAP.get(self.key)
+        
         relative_path = ResourceService.import_single_file_to_project(
             file_path,
             project_root,
+            resource_type=resource_type,
             old_path=old_path
         )
         
@@ -693,9 +696,12 @@ class ScreenshotField(FieldWidget):
         
         old_path = self.full_path if self.full_path else None
         
+        resource_type = ResourceService.RESOURCE_TYPE_MAP.get(self.key)
+        
         relative_path = ResourceService.import_single_file_to_project(
             file_path,
             project_root,
+            resource_type=resource_type,
             old_path=old_path
         )
         

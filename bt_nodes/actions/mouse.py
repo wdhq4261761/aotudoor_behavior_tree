@@ -128,9 +128,9 @@ class MouseClickNode(ActionNode):
         self._reset_click_state()
         super().abort(context)
 
-    def reset(self) -> None:
+    def reset(self, reset_counters: bool = True) -> None:
         self._reset_click_state()
-        super().reset()
+        super().reset(reset_counters=reset_counters)
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
@@ -214,8 +214,7 @@ class MouseMoveNode(ActionNode):
         context.execute_mouse_move(position, self.relative, self.smooth)
         LogManager.instance().log_success(
             node_type="鼠标移动节点",
-            node_name=self.name,
-            message=f"{'平滑' if self.smooth else '直接'}移动到 {position}"
+            node_name=self.name
         )
         return NodeStatus.SUCCESS
 
@@ -275,8 +274,7 @@ class MouseMoveNode(ActionNode):
         
         LogManager.instance().log_success(
             node_type="鼠标移动节点",
-            node_name=self.name,
-            message=f"从 {start_pos} 拖拽到 {drag_end_position}"
+            node_name=self.name
         )
         return NodeStatus.SUCCESS
 

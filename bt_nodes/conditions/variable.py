@@ -86,8 +86,7 @@ class VariableConditionNode(ConditionNode):
                 if result:
                     LogManager.instance().log_success(
                         node_type="变量条件节点",
-                        node_name=self.name,
-                        message=f"变量 '{self.variable_name}' 存在"
+                        node_name=self.name
                     )
                 else:
                     LogManager.instance().log_failure(
@@ -102,8 +101,7 @@ class VariableConditionNode(ConditionNode):
                 if result:
                     LogManager.instance().log_success(
                         node_type="变量条件节点",
-                        node_name=self.name,
-                        message=f"变量 '{self.variable_name}' 不存在"
+                        node_name=self.name
                     )
                 else:
                     LogManager.instance().log_failure(
@@ -128,8 +126,7 @@ class VariableConditionNode(ConditionNode):
                 if result:
                     LogManager.instance().log_success(
                         node_type="变量条件节点",
-                        node_name=self.name,
-                        message=f"比较: {value} {self.operator} {inferred_target} = True"
+                        node_name=self.name
                     )
                 else:
                     LogManager.instance().log_failure(

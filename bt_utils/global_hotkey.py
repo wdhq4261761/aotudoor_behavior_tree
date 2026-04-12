@@ -147,6 +147,10 @@ class GlobalHotkeyManager:
     def _on_press(self, key):
         """按键按下事件处理"""
         try:
+            from bt_utils.input_controller import InputController
+            if InputController.is_simulating():
+                return
+            
             key_name = self._get_key_name(key)
             if key_name:
                 self._pressed_keys.add(key_name)
@@ -157,6 +161,10 @@ class GlobalHotkeyManager:
     def _on_release(self, key):
         """按键释放事件处理"""
         try:
+            from bt_utils.input_controller import InputController
+            if InputController.is_simulating():
+                return
+            
             key_name = self._get_key_name(key)
             if key_name and key_name in self._pressed_keys:
                 self._pressed_keys.discard(key_name)

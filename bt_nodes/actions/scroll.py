@@ -36,8 +36,7 @@ class MouseScrollNode(ActionNode):
             if success:
                 LogManager.instance().log_success(
                     node_type="鼠标滚轮节点",
-                    node_name=self.name,
-                    message=f"{self.direction}滚动 {abs(self.distance)}距离 × {self.clicks}次"
+                    node_name=self.name
                 )
                 return NodeStatus.SUCCESS
             else:

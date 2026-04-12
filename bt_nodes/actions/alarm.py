@@ -95,8 +95,8 @@ class AlarmNode(ActionNode):
         self._abort_flag = True
         super().abort(context)
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, reset_counters: bool = True) -> None:
+        super().reset(reset_counters=reset_counters)
         self._abort_flag = False
         self._current_repeat = 0
 

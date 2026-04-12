@@ -219,7 +219,12 @@ class ScriptExecutor:
             self.input_controller.move_to(command["x"], command["y"])
 
         elif command["type"] == "delay":
-            time.sleep(command["time"] / 1000)
+            delay_time = command["time"] / 1000
+            elapsed = 0
+            while elapsed < delay_time and self.is_running:
+                sleep_time = min(0.1, delay_time - elapsed)
+                time.sleep(sleep_time)
+                elapsed += sleep_time
 
     def _release_all_keys(self, pressed_keys: set) -> None:
         """释放所有按键

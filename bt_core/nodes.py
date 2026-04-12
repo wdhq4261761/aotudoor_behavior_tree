@@ -97,12 +97,6 @@ class Node(ABC):
                     time.sleep(repeat_interval_ms / 1000)
                 
                 self._reset_for_repeat()
-                if isinstance(self, CompositeNode):
-                    LogManager.instance().log_info(
-                        node_type="重复执行",
-                        node_name=self.name,
-                        message=f"开始第{self._repeat_count}次重复"
-                    )
                 return NodeStatus.RUNNING
 
         if status == NodeStatus.SUCCESS:
@@ -114,7 +108,7 @@ class Node(ABC):
 
     def _reset_for_retry(self) -> None:
         """重试时重置状态（保留重试计数器）"""
-        self.status = NodeStatus.SUCCESS
+        self.status = NodeStatus.RUNNING
         self._tick_count = 0
         self._start_time = None
         for child in self.children:
@@ -122,12 +116,10 @@ class Node(ABC):
 
     def _reset_for_repeat(self) -> None:
         """重复执行时重置状态（保留重复计数器）"""
-        self.status = NodeStatus.SUCCESS
-        self._tick_count = 0
-        self._retry_count = 0
-        self._start_time = None
-        for child in self.children:
-            child.reset()
+        saved_repeat_count = self._repeat_count
+        self.reset(reset_counters=False)
+        self._repeat_count = saved_repeat_count
+        self.status = NodeStatus.RUNNING
 
     def reset(self, reset_counters: bool = True) -> None:
         """重置节点状态
@@ -402,7 +394,13 @@ class ParallelNode(CompositeNode):
         return self._execute_with_decorators(context, self._tick_internal)
 
     def _tick_internal(self, context: "ExecutionContext") -> NodeStatus:
+        from bt_utils.log_manager import LogManager
+        
         if not self.children:
+            LogManager.instance().log_success(
+                node_type="并行节点",
+                node_name=self.name
+            )
             return NodeStatus.SUCCESS
 
         success_count = 0
@@ -438,15 +436,43 @@ class ParallelNode(CompositeNode):
 
         if self.success_policy == self.SUCCESS_POLICY_ONE and success_count > 0:
             self._abort_running(context, running_children)
+            LogManager.instance().log_success(
+                node_type="并行节点",
+                node_name=self.name
+            )
             return NodeStatus.SUCCESS
 
         if running_children:
             return NodeStatus.RUNNING
 
         if self.success_policy == self.SUCCESS_POLICY_ALL:
-            return NodeStatus.SUCCESS if success_count == enabled_count else NodeStatus.FAILURE
+            if success_count == enabled_count:
+                LogManager.instance().log_success(
+                    node_type="并行节点",
+                    node_name=self.name
+                )
+                return NodeStatus.SUCCESS
+            else:
+                LogManager.instance().log_failure(
+                    node_type="并行节点",
+                    node_name=self.name,
+                    reason=f"成功 {success_count}/{enabled_count} 个子节点"
+                )
+                return NodeStatus.FAILURE
         else:
-            return NodeStatus.SUCCESS if success_count > 0 else NodeStatus.FAILURE
+            if success_count > 0:
+                LogManager.instance().log_success(
+                    node_type="并行节点",
+                    node_name=self.name
+                )
+                return NodeStatus.SUCCESS
+            else:
+                LogManager.instance().log_failure(
+                    node_type="并行节点",
+                    node_name=self.name,
+                    reason="所有子节点都执行失败"
+                )
+                return NodeStatus.FAILURE
 
     def _abort_running(self, context: "ExecutionContext", children: List[Node]) -> None:
         """中止正在运行的子节点
@@ -692,7 +718,8 @@ class StartNode(SequenceNode):
     
     def __init__(self, node_id: str = None, config: NodeConfig = None):
         super().__init__(node_id, config)
-        self._is_protected = True  # 不可删除标记
+        self._is_protected = True
+        self._completed_children: set = set()
     
     def tick(self, context: "ExecutionContext") -> NodeStatus:
         """执行所有子节点,失败后继续执行
@@ -710,37 +737,66 @@ class StartNode(SequenceNode):
         return self._execute_with_decorators(context, self._tick_internal)
     
     def _tick_internal(self, context: "ExecutionContext") -> NodeStatus:
-        """内部执行逻辑"""
+        from bt_utils.log_manager import LogManager
+        
         if not self.children:
+            LogManager.instance().log_success(
+                node_type="开始节点",
+                node_name=self.name
+            )
             return NodeStatus.SUCCESS
         
-        print(f"[StartNode] 执行子节点 - 子节点数量: {len(self.children)}, 重复次数: {self.config.repeat_count}, 当前重复: {self._repeat_count}")
-        
         has_running = False
+        has_failure = False
         for i, child in enumerate(self.children):
             if not child.config.enabled:
-                print(f"[StartNode] 子节点 {i} 已禁用，跳过")
                 continue
             
-            print(f"[StartNode] 执行子节点 {i}: {child.name}")
+            if i in self._completed_children:
+                continue
+            
             status = child.tick(context)
-            print(f"[StartNode] 子节点 {i} 返回: {status}")
             
             if status == NodeStatus.RUNNING:
                 has_running = True
+            else:
+                if status == NodeStatus.FAILURE:
+                    has_failure = True
+                self._completed_children.add(i)
         
         if has_running:
             return NodeStatus.RUNNING
         
-        print(f"[StartNode] 所有子节点执行完毕")
+        if has_failure:
+            LogManager.instance().log_failure(
+                node_type="开始节点",
+                node_name=self.name,
+                reason="部分子节点执行失败"
+            )
+        else:
+            LogManager.instance().log_success(
+                node_type="开始节点",
+                node_name=self.name
+            )
+        
         return NodeStatus.SUCCESS
     
     def reset(self, reset_counters: bool = True) -> None:
         """重置节点状态"""
         super().reset(reset_counters)
-        # 重置所有子节点
+        self._completed_children.clear()
         for child in self.children:
             child.reset()
+    
+    def _reset_for_retry(self) -> None:
+        """重试时重置状态（保留重试计数器）"""
+        super()._reset_for_retry()
+        self._completed_children.clear()
+    
+    def _reset_for_repeat(self) -> None:
+        """重复执行时重置状态（保留重复计数器）"""
+        super()._reset_for_repeat()
+        self._completed_children.clear()
     
     def to_dict(self) -> Dict[str, Any]:
         """

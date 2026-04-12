@@ -34,8 +34,8 @@ class DelayNode(ActionNode):
         self._delay_start_time = None
         super().abort(context)
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, reset_counters: bool = True) -> None:
+        super().reset(reset_counters=reset_counters)
         self._delay_start_time = None
 
     def to_dict(self) -> Dict[str, Any]:

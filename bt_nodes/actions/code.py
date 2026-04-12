@@ -3,6 +3,7 @@ import subprocess
 import sys
 import threading
 import time
+import queue
 from bt_core.nodes import ActionNode, NodeStatus
 from bt_core.config import NodeConfig
 from typing import Dict, Any, List, Optional
@@ -27,8 +28,10 @@ class CodeNode(ActionNode):
         self._code_started = False
         self._aborted = False
         self._lock = threading.Lock()
-        self._stdout_buffer = ""
-        self._stderr_buffer = ""
+        self._stdout_queue: Optional[queue.Queue] = None
+        self._stderr_queue: Optional[queue.Queue] = None
+        self._stdout_thread: Optional[threading.Thread] = None
+        self._stderr_thread: Optional[threading.Thread] = None
 
     def _detect_code_type(self) -> str:
         if self.code_type != "auto":
@@ -49,18 +52,64 @@ class CodeNode(ActionNode):
         code_type = self._detect_code_type()
         
         if code_type == "python":
-            cmd = [sys.executable, code_path]
+            cmd = [sys.executable, "-u", code_path]
         elif code_type == "batch":
-            cmd = ["cmd", "/c", code_path]
+            cmd = [code_path]
         elif code_type == "powershell":
             cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", code_path]
         else:
-            cmd = [sys.executable, code_path]
+            cmd = [sys.executable, "-u", code_path]
 
         if self.args:
             cmd.extend([str(arg) for arg in self.args])
 
         return cmd
+
+    def _read_output(self, pipe, output_queue: queue.Queue) -> None:
+        encodings = ['utf-8', 'gbk', 'gb2312', 'cp936', 'latin-1']
+        
+        def try_decode(data: bytes) -> str:
+            for encoding in encodings:
+                try:
+                    return data.decode(encoding)
+                except (UnicodeDecodeError, LookupError):
+                    continue
+            return data.decode('utf-8', errors='replace')
+        
+        try:
+            for line in iter(pipe.readline, b''):
+                if line:
+                    decoded = try_decode(line)
+                    output_queue.put(decoded)
+        finally:
+            pipe.close()
+
+    def _flush_output_queues(self) -> None:
+        from bt_utils.log_manager import LogManager
+        
+        if self._stdout_queue:
+            while not self._stdout_queue.empty():
+                try:
+                    line = self._stdout_queue.get_nowait()
+                    LogManager.instance().log_info(
+                        node_type="代码节点",
+                        node_name=self.name,
+                        message=line.rstrip()
+                    )
+                except queue.Empty:
+                    break
+        
+        if self._stderr_queue:
+            while not self._stderr_queue.empty():
+                try:
+                    line = self._stderr_queue.get_nowait()
+                    LogManager.instance().log_info(
+                        node_type="代码节点",
+                        node_name=self.name,
+                        message=f"[stderr] {line.rstrip()}"
+                    )
+                except queue.Empty:
+                    break
 
     def _execute_action(self, context) -> NodeStatus:
         from bt_utils.log_manager import LogManager
@@ -119,9 +168,6 @@ class CodeNode(ActionNode):
             if not self._code_started:
                 cmd = self._build_command(absolute_code_path)
                 
-                import locale
-                preferred_encoding = locale.getpreferredencoding(False)
-                
                 LogManager.instance().log_info(
                     node_type="代码节点",
                     node_name=self.name,
@@ -131,14 +177,25 @@ class CodeNode(ActionNode):
                 self._process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    encoding=preferred_encoding,
-                    errors='replace'
+                    stderr=subprocess.PIPE
                 )
                 self._code_started = True
-                self._stdout_buffer = ""
-                self._stderr_buffer = ""
+                
+                self._stdout_queue = queue.Queue()
+                self._stderr_queue = queue.Queue()
+                self._stdout_thread = threading.Thread(
+                    target=self._read_output,
+                    args=(self._process.stdout, self._stdout_queue),
+                    daemon=True
+                )
+                self._stderr_thread = threading.Thread(
+                    target=self._read_output,
+                    args=(self._process.stderr, self._stderr_queue),
+                    daemon=True
+                )
+                self._stdout_thread.start()
+                self._stderr_thread.start()
+                
                 return NodeStatus.RUNNING
             
             with self._lock:
@@ -152,44 +209,32 @@ class CodeNode(ActionNode):
             if self._process is None:
                 return NodeStatus.FAILURE
             
+            self._flush_output_queues()
+            
             poll_result = self._process.poll()
             if poll_result is None:
-                self._read_available_output()
                 return NodeStatus.RUNNING
             
-            self._read_available_output()
-            
-            stdout = self._stdout_buffer
-            stderr = self._stderr_buffer
+            self._flush_output_queues()
             
             self._code_started = False
             self._process = None
-            self._stdout_buffer = ""
-            self._stderr_buffer = ""
+            self._stdout_queue = None
+            self._stderr_queue = None
+            self._stdout_thread = None
+            self._stderr_thread = None
             
             if poll_result == 0:
-                if stdout and stdout.strip():
-                    output_lines = stdout.strip().split('\n')
-                    for line in output_lines:
-                        LogManager.instance().log_info(
-                            node_type="代码节点",
-                            node_name=self.name,
-                            message=line
-                        )
                 LogManager.instance().log_success(
                     node_type="代码节点",
                     node_name=self.name
                 )
                 return NodeStatus.SUCCESS
             else:
-                error_msg = f"返回码: {poll_result}"
-                if stderr:
-                    error_msg += f", 错误: {stderr[:200]}"
-                
                 LogManager.instance().log_failure(
                     node_type="代码节点",
                     node_name=self.name,
-                    reason=error_msg
+                    reason=f"执行失败 (退出码: {poll_result})"
                 )
                 return NodeStatus.FAILURE
 
@@ -200,27 +245,6 @@ class CodeNode(ActionNode):
                 reason=f"执行异常: {str(e)}"
             )
             return NodeStatus.FAILURE
-
-    def _read_available_output(self) -> None:
-        if self._process is None:
-            return
-        
-        try:
-            import select
-            if hasattr(select, 'select'):
-                while True:
-                    ready, _, _ = select.select([self._process.stdout, self._process.stderr], [], [], 0)
-                    if not ready:
-                        break
-                    for pipe in ready:
-                        line = pipe.readline()
-                        if line:
-                            if pipe == self._process.stdout:
-                                self._stdout_buffer += line
-                            else:
-                                self._stderr_buffer += line
-        except Exception:
-            pass
 
     def _terminate_process(self) -> None:
         if self._process and self._process.poll() is None:
@@ -243,12 +267,14 @@ class CodeNode(ActionNode):
         self._terminate_process()
         super().abort(context)
     
-    def reset(self) -> None:
+    def reset(self, reset_counters: bool = True) -> None:
         self._terminate_process()
         self._aborted = False
-        self._stdout_buffer = ""
-        self._stderr_buffer = ""
-        super().reset()
+        self._stdout_queue = None
+        self._stderr_queue = None
+        self._stdout_thread = None
+        self._stderr_thread = None
+        super().reset(reset_counters=reset_counters)
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()

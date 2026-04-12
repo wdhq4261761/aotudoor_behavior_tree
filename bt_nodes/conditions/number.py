@@ -76,8 +76,7 @@ class NumberConditionNode(ConditionNode):
                     result = operator_func(value, self.threshold)
                     LogManager.instance().log_success(
                         node_type="数字节点",
-                        node_name=self.name,
-                        message=f"比较: {value} {self.compare_mode} {self.threshold} = {result}"
+                        node_name=self.name
                     )
                     return result
                 else:
@@ -88,10 +87,13 @@ class NumberConditionNode(ConditionNode):
                     )
                     return False
             else:
+                reason = "未识别到数字"
+                if all_text:
+                    reason += f"，识别到的文本: {all_text}"
                 LogManager.instance().log_failure(
                     node_type="数字节点",
                     node_name=self.name,
-                    reason="未识别到数字"
+                    reason=reason
                 )
                 return False
         except Exception as e:

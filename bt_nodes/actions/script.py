@@ -110,11 +110,12 @@ class ScriptNode(ActionNode):
                     return NodeStatus.FAILURE
                 
                 self._executor = self._get_or_create_executor()
-                self._executor.run_script(self._script_content, loop=self.loop)
+                use_loop = self.loop and self.config.repeat_count == 0
+                self._executor.run_script(self._script_content, loop=use_loop)
                 self._script_started = True
                 
                 LogManager.instance().log_info(
-                    node_type="脚本节点",
+                     node_type="脚本节点",
                     node_name=self.name,
                     message=f"开始执行脚本 {script_path}"
                 )
@@ -167,18 +168,23 @@ class ScriptNode(ActionNode):
         self._script_content = None
         super().abort(context)
     
-    def reset(self) -> None:
+    def reset(self, reset_counters: bool = True) -> None:
         with self._lock:
             if self._executor and self._executor.is_running:
                 try:
                     self._executor.stop_script()
                 except Exception:
                     pass
+            
+            with ScriptNode._pool_lock:
+                if self.node_id in ScriptNode._executor_pool:
+                    del ScriptNode._executor_pool[self.node_id]
+            
             self._executor = None
             self._script_started = False
             self._aborted = False
             self._script_content = None
-        super().reset()
+        super().reset(reset_counters=reset_counters)
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
