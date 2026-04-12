@@ -11,7 +11,7 @@ class SetVariableNode(ActionNode):
 
     Args:
         variable_name: 变量名
-        variable_value: 变量值
+        value: 变量值
         operation: 操作类型 (set/increment/delete)
     """
     NODE_TYPE = "SetVariableNode"
@@ -19,7 +19,7 @@ class SetVariableNode(ActionNode):
     def __init__(self, node_id: str = None, config: NodeConfig = None):
         super().__init__(node_id, config)
         self.variable_name = self.config.get("variable_name", "")
-        self.variable_value = self.config.get("variable_value", "")
+        self.value = self.config.get("value", "")
         self.operation = self.config.get("operation", "set")
 
     def _execute_action(self, context) -> NodeStatus:
@@ -33,9 +33,9 @@ class SetVariableNode(ActionNode):
                 return NodeStatus.FAILURE
             
             if self.operation == "set":
-                context.blackboard.set(self.variable_name, self.variable_value)
+                context.blackboard.set(self.variable_name, self.value)
             elif self.operation == "increment":
-                context.blackboard.increment(self.variable_name, self.variable_value)
+                context.blackboard.increment(self.variable_name, self.value)
             elif self.operation == "delete":
                 context.blackboard.delete(self.variable_name)
             
@@ -55,7 +55,7 @@ class SetVariableNode(ActionNode):
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
         data["config"]["variable_name"] = self.variable_name
-        data["config"]["variable_value"] = self.variable_value
+        data["config"]["value"] = self.value
         data["config"]["operation"] = self.operation
         return data
 
@@ -64,6 +64,6 @@ class SetVariableNode(ActionNode):
         config = NodeConfig.from_dict(data.get("config", {}))
         node = cls(node_id=data.get("id"), config=config)
         node.variable_name = config.get("variable_name", "")
-        node.variable_value = config.get("variable_value", "")
+        node.value = config.get("value", "")
         node.operation = config.get("operation", "set")
         return node

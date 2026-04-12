@@ -314,10 +314,18 @@ class SettingsTab(ctk.CTkFrame):
     def _update_editor_shortcuts(self):
         """更新编辑器的快捷键绑定"""
         try:
+            from config.settings_manager import SettingsManager
+            
+            start_key = self.start_shortcut_var.get()
+            stop_key = self.stop_shortcut_var.get()
+            record_key = self.record_hotkey_var.get()
+            
+            settings_manager = SettingsManager.get_instance()
+            settings_manager.set("shortcuts.start", start_key, auto_save=True)
+            settings_manager.set("shortcuts.stop", stop_key, auto_save=True)
+            settings_manager.set("shortcuts.record", record_key, auto_save=True)
+            
             if hasattr(self.app, 'behavior_tree') and hasattr(self.app.behavior_tree, 'update_run_shortcuts'):
-                start_key = self.start_shortcut_var.get()
-                stop_key = self.stop_shortcut_var.get()
-                record_key = self.record_hotkey_var.get()
                 self.app.behavior_tree.update_run_shortcuts(start_key, stop_key, record_key)
         except Exception:
             pass

@@ -28,9 +28,6 @@ from bt_utils.crash_recovery import CrashRecoveryHandler
 from bt_utils.global_hotkey import GlobalHotkeyManager
 
 
-from bt_utils.global_hotkey import GlobalHotkeyManager
-
-
 def _get_user_data_dir() -> Path:
     """获取平台适用的用户数据目录"""
     if platform.system() == "Windows":
@@ -155,39 +152,9 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         pass
     
     def _bind_events(self):
-        shortcuts = [
-            ("<Control-z>", self.undo),
-            ("<Control-y>", self.redo),
-            ("<Control-Shift-Z>", self.redo),
-            ("<Control-s>", lambda: self.save_tree()),
-            ("<Control-Shift-S>", lambda: self.save_tree(save_as=True)),
-            ("<Control-o>", lambda: self.load_tree()),
-            ("<Control-n>", lambda: self.new_tree()),
-            ("<Delete>", self._on_delete_key),
-            ("<BackSpace>", self._on_delete_key),
-            ("<Control-c>", self._copy_selected),
-            ("<Control-v>", self._paste_selected),
-            ("<Control-x>", self._cut_selected),
-            ("<Control-d>", self._duplicate_selected),
-        ]
+        self.bind("<<StopRunning>>", lambda e: self._stop_running_in_main_thread())
         
-        def make_handler(cb, key):
-            def handler(e):
-                if key in ("<Delete>", "<BackSpace>"):
-                    focused = self.winfo_toplevel().focus_get()
-                    if focused:
-                        widget_type = str(type(focused).__name__)
-                        if widget_type in ("CTkEntry", "Entry", "CTkTextbox", "Text"):
-                            return None
-                if callable(cb):
-                    cb()
-                return "break"
-            return handler
-        
-        root = self.winfo_toplevel()
-        for key, callback in shortcuts:
-            handler = make_handler(callback, key)
-            root.bind(key, handler)
+        self._init_ui_dispatcher()
         
         self._bind_run_shortcuts()
     
@@ -198,12 +165,11 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         record_key = "F11"
         
         try:
-            if hasattr(self.app, 'settings') and hasattr(self.app.settings, 'get_settings'):
-                settings = self.app.settings.get_settings()
-                shortcuts = settings.get("shortcuts", {})
-                start_key = shortcuts.get("start", "F10")
-                stop_key = shortcuts.get("stop", "F12")
-                record_key = shortcuts.get("record", "F11")
+            from config.settings_manager import SettingsManager
+            settings_manager = SettingsManager.get_instance()
+            start_key = settings_manager.get("shortcuts.start", "F10")
+            stop_key = settings_manager.get("shortcuts.stop", "F12")
+            record_key = settings_manager.get("shortcuts.record", "F11")
         except Exception:
             pass
         
@@ -220,8 +186,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     def _toggle_recording(self):
         """切换录制状态"""
         try:
-            if hasattr(self.app, 'script_tab') and hasattr(self.app.script_tab, 'toggle_recording'):
-                self.app.script_tab.toggle_recording()
+            if hasattr(self.app, 'script_editor') and hasattr(self.app.script_editor, 'toggle_recording'):
+                self.app.script_editor.toggle_recording()
         except Exception as e:
             print(f"[WARN] 切换录制状态失败: {e}")
     
@@ -243,16 +209,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         if record_key:
             self._hotkey_manager.register(record_key, self._toggle_recording)
             self._record_shortcut = record_key
-    
-    def _on_delete_key(self):
-        """处理删除键，避免在输入框中误删节点"""
-        focused = self.winfo_toplevel().focus_get()
-        if focused:
-            widget_type = str(type(focused).__name__)
-            if widget_type in ("CTkEntry", "Entry", "CTkTextbox", "Text"):
-                return None
-        self._delete_selected()
-        return "break"
     
     def _on_node_add_from_palette(self, node_type: str):
         self._node_counter += 1
@@ -1126,6 +1082,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             return
 
         self._is_running = True
+        self._stop_requested = False
         self._play_start_sound()
 
         self.canvas.show_all_status_indicators()
@@ -1139,17 +1096,22 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         
         self.engine.start(self.context)
         self.toolbar.set_running(True)
+        
+        self._start_ui_polling()
 
     def _stop_running(self):
         if not self._is_running:
             return
         
+        self._stop_requested = True
         self.after(0, self._stop_running_in_main_thread)
     
     def _stop_running_in_main_thread(self):
         """在主线程中执行停止操作"""
         if not self._is_running:
             return
+        
+        self._stop_ui_polling()
         
         self._play_stop_sound()
         
@@ -1162,9 +1124,25 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.toolbar.set_running(False)
         self._is_running = False
     
+    def _stop_ui_polling(self):
+        """停止UI轮询"""
+        if hasattr(self, '_dispatcher') and self._dispatcher:
+            self._dispatcher.stop_polling()
+    
     def _clear_status_after_stop(self):
         """延迟清除状态，确保引擎完全停止"""
         self.canvas.clear_all_node_status()
+    
+    def _init_ui_dispatcher(self):
+        """初始化UI更新分发器"""
+        from bt_utils.ui_dispatcher import UIUpdateDispatcher
+        self._dispatcher = UIUpdateDispatcher.get_instance()
+        self._dispatcher.attach(self)
+    
+    def _start_ui_polling(self):
+        """启动UI轮询，确保后台线程的更新能及时处理"""
+        if hasattr(self, '_dispatcher') and self._dispatcher:
+            self._dispatcher.start_polling()
 
     def _play_start_sound(self):
         try:
@@ -1197,7 +1175,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             "idle": NodeExecutionStatus.IDLE,
         }
         node_status = status_map.get(status, NodeExecutionStatus.IDLE)
-        self.after(0, lambda: self.canvas.set_node_status(node_id, node_status))
+        self.canvas.set_node_status(node_id, node_status)
 
     def _on_engine_status_change(self, status: str, node_status: NodeStatus = None):
         if status == "completed":

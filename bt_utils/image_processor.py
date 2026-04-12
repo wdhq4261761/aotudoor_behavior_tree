@@ -75,6 +75,36 @@ class ImageProcessor:
         return False, None
 
     @staticmethod
+    def find_color_with_count(source: Image.Image, target_color: Tuple[int, int, int],
+                              tolerance: int = 10) -> Tuple[bool, Optional[Tuple[int, int]], int]:
+        """颜色检测（返回匹配像素数）
+
+        Args:
+            source: 源图像
+            target_color: 目标颜色 (R, G, B)
+            tolerance: 容差
+
+        Returns:
+            (是否找到, 中心位置, 匹配像素数) 元组
+        """
+        source_array = np.array(source)
+
+        lower = np.array([max(0, c - tolerance) for c in target_color])
+        upper = np.array([min(255, c + tolerance) for c in target_color])
+
+        mask = cv2.inRange(source_array[:, :, :3], lower, upper)
+
+        positions = np.where(mask > 0)
+        match_count = len(positions[0])
+
+        if match_count > 0:
+            center_x = int(np.mean(positions[1]))
+            center_y = int(np.mean(positions[0]))
+            return True, (center_x, center_y), match_count
+
+        return False, None, 0
+
+    @staticmethod
     def compute_phash(image: Image.Image, hash_size: int = 8) -> str:
         """计算感知哈希
 

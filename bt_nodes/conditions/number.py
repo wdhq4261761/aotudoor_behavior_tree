@@ -37,6 +37,7 @@ class NumberConditionNode(ConditionNode):
             default_value_key = "last_number_value"
         
         self.value_key = self.config.get("value_key", default_value_key)
+        self.position_key = self.config.get("position_key", "last_detection_position")
 
     def _check_condition(self, context) -> bool:
         from bt_utils.ocr_manager import OCRManager
@@ -55,7 +56,7 @@ class NumberConditionNode(ConditionNode):
             from bt_utils.ocr_manager import OCRManager
             ocr_manager = OCRManager.instance()
             
-            found, value = ocr_manager.recognize_number(
+            found, value, all_text, position = ocr_manager.recognize_number_with_position(
                 screenshot, 
                 language=self.language
             )
@@ -63,6 +64,12 @@ class NumberConditionNode(ConditionNode):
             if found and value is not None:
                 if self.save_value:
                     context.blackboard.set(self.value_key, value)
+                
+                if position:
+                    abs_position = position
+                    if self.region:
+                        abs_position = (position[0] + self.region[0], position[1] + self.region[1])
+                    context.blackboard.set(self.position_key, abs_position)
                 
                 operator_func = self.OPERATORS.get(self.compare_mode)
                 if operator_func:
@@ -107,6 +114,7 @@ class NumberConditionNode(ConditionNode):
         data["config"]["min_confidence"] = int(self.min_confidence * 100)
         data["config"]["save_value"] = self.save_value
         data["config"]["value_key"] = self.value_key
+        data["config"]["position_key"] = self.position_key
         return data
 
     @classmethod

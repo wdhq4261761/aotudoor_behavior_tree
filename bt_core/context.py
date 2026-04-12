@@ -59,7 +59,12 @@ class ExecutionContext:
             status: 状态字符串
         """
         if self._on_node_status:
-            self._on_node_status(node_id, status)
+            try:
+                from bt_utils.ui_dispatcher import UIUpdateDispatcher
+                dispatcher = UIUpdateDispatcher.get_instance()
+                dispatcher.dispatch_node_status(node_id, status, self._on_node_status)
+            except ImportError:
+                self._on_node_status(node_id, status)
 
     def get_screenshot(self, region: tuple = None):
         """获取屏幕截图
@@ -108,18 +113,31 @@ class ExecutionContext:
 
         self._input_controller.mouse_click(button, position, action, duration)
 
-    def execute_mouse_move(self, position: tuple, relative: bool = False) -> None:
+    def execute_mouse_move(self, position: tuple, relative: bool = False, smooth: bool = False) -> None:
         """执行鼠标移动
 
         Args:
             position: 目标位置 (x, y)
             relative: 是否相对移动
+            smooth: 是否平滑移动
         """
         if self._input_controller is None:
             from bt_utils.input_controller import InputController
             self._input_controller = InputController()
 
-        self._input_controller.mouse_move(position, relative)
+        self._input_controller.mouse_move(position, relative, smooth=smooth)
+
+    def get_mouse_position(self) -> Optional[Tuple[int, int]]:
+        """获取当前鼠标位置
+
+        Returns:
+            当前鼠标位置 (x, y)，如果无法获取则返回 None
+        """
+        if self._input_controller is None:
+            from bt_utils.input_controller import InputController
+            self._input_controller = InputController()
+
+        return self._input_controller.get_position()
 
     def execute_mouse_scroll(self, amount: int, position: tuple = None) -> None:
         """执行鼠标滚轮滚动

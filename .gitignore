@@ -44,3 +44,5 @@ ENV/
 
 *.bak
 backup/
+
+/examples/

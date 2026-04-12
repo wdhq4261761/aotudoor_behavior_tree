@@ -89,20 +89,29 @@ class BehaviorTreeApp(ctk.CTk):
         self.main_tabview.set("🌲 行为树编辑器")
     
     def _setup_shortcuts(self):
-        self.bind("<Control-z>", lambda e: self._undo())
-        self.bind("<Control-y>", lambda e: self._redo())
-        self.bind("<Control-s>", lambda e: self._save())
-        self.bind("<Control-o>", lambda e: self._open())
-        self.bind("<Control-n>", lambda e: self._new())
-        self.bind("<Delete>", lambda e: self._delete())
+        shortcuts = [
+            ("<Control-z>", self._undo),
+            ("<Control-y>", self._redo),
+            ("<Control-Shift-Z>", self._redo),
+            ("<Control-s>", self._save),
+            ("<Control-Shift-S>", lambda: self._save(save_as=True)),
+            ("<Control-o>", self._open),
+            ("<Control-n>", self._new),
+            ("<Delete>", self._delete),
+            ("<BackSpace>", self._delete),
+            ("<Control-c>", self._copy),
+            ("<Control-v>", self._paste),
+            ("<Control-x>", self._cut),
+            ("<Control-d>", self._duplicate),
+        ]
         
-        start_key = self._settings.get("shortcuts.start", "F10")
-        stop_key = self._settings.get("shortcuts.stop", "F12")
-        record_key = self._settings.get("shortcuts.record", "F11")
-        
-        self.bind(f"<{start_key}>", lambda e: self._start_behavior_tree())
-        self.bind(f"<{stop_key}>", lambda e: self._stop_behavior_tree())
-        self.bind(f"<{record_key}>", lambda e: self._toggle_recording())
+        for key, callback in shortcuts:
+            self.bind(key, lambda e, cb=callback: self._handle_shortcut(e, cb))
+    
+    def _handle_shortcut(self, event, callback):
+        if callable(callback):
+            callback()
+        return "break"
     
     def _undo(self):
         if hasattr(self.behavior_tree, 'undo'):
@@ -112,11 +121,11 @@ class BehaviorTreeApp(ctk.CTk):
         if hasattr(self.behavior_tree, 'redo'):
             self.behavior_tree.redo()
     
-    def _save(self):
+    def _save(self, save_as=False):
         current_tab = self.main_tabview.get()
         if "行为树" in current_tab:
             if hasattr(self.behavior_tree, 'save_tree'):
-                self.behavior_tree.save_tree()
+                self.behavior_tree.save_tree(save_as=save_as)
         elif "脚本" in current_tab:
             if hasattr(self.script_editor, '_save_script'):
                 self.script_editor._save_script()
@@ -140,28 +149,39 @@ class BehaviorTreeApp(ctk.CTk):
                 self.script_editor._new_script()
     
     def _delete(self):
+        focused = self.focus_get()
+        if focused:
+            widget_type = str(type(focused).__name__)
+            if widget_type in ("CTkEntry", "Entry", "CTkTextbox", "Text"):
+                return
         current_tab = self.main_tabview.get()
         if "行为树" in current_tab:
             if hasattr(self.behavior_tree, '_delete_selected'):
                 self.behavior_tree._delete_selected()
     
-    def _start_behavior_tree(self):
-        """开始运行行为树"""
-        if hasattr(self.behavior_tree, 'start_tree'):
-            self.behavior_tree.start_tree()
+    def _copy(self):
+        current_tab = self.main_tabview.get()
+        if "行为树" in current_tab:
+            if hasattr(self.behavior_tree, '_copy_selected'):
+                self.behavior_tree._copy_selected()
     
-    def _stop_behavior_tree(self):
-        """停止运行行为树"""
-        if hasattr(self.behavior_tree, 'stop_tree'):
-            self.behavior_tree.stop_tree()
+    def _paste(self):
+        current_tab = self.main_tabview.get()
+        if "行为树" in current_tab:
+            if hasattr(self.behavior_tree, '_paste_selected'):
+                self.behavior_tree._paste_selected()
     
-    def _toggle_recording(self):
-        """切换录制状态"""
-        if hasattr(self.script_editor, '_is_recording'):
-            if self.script_editor._is_recording:
-                self.script_editor._stop_recording()
-            else:
-                self.script_editor._start_recording()
+    def _cut(self):
+        current_tab = self.main_tabview.get()
+        if "行为树" in current_tab:
+            if hasattr(self.behavior_tree, '_cut_selected'):
+                self.behavior_tree._cut_selected()
+    
+    def _duplicate(self):
+        current_tab = self.main_tabview.get()
+        if "行为树" in current_tab:
+            if hasattr(self.behavior_tree, '_duplicate_selected'):
+                self.behavior_tree._duplicate_selected()
     
     def _on_close(self):
         if hasattr(self, 'behavior_tree') and self.behavior_tree:

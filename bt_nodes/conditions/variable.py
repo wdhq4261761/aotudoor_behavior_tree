@@ -1,5 +1,6 @@
 from bt_core.nodes import ConditionNode
 from bt_core.config import NodeConfig
+from bt_utils.log_manager import LogManager
 from typing import Dict, Any, Optional
 
 
@@ -12,7 +13,7 @@ class VariableConditionNode(ConditionNode):
     Args:
         variable_name: 变量名
         operator: 比较运算符 (==, !=, >, >=, <, <=, contains, not_contains, exists, not_exists)
-        target_value: 目标值
+        compare_value: 比较值
     """
     NODE_TYPE = "VariableConditionNode"
 
@@ -33,7 +34,7 @@ class VariableConditionNode(ConditionNode):
         super().__init__(node_id, config)
         self.variable_name = self.config.get("variable_name", "")
         self.operator = self.config.get("operator", "==")
-        self.target_value = self.config.get("target_value", "")
+        self.compare_value = self.config.get("compare_value", "")
 
     def _infer_type(self, value: Any, target: Any) -> Any:
         """类型推断
@@ -81,19 +82,70 @@ class VariableConditionNode(ConditionNode):
             value = context.blackboard.get(self.variable_name)
 
             if self.operator == "exists":
-                return value is not None
+                result = value is not None
+                if result:
+                    LogManager.instance().log_success(
+                        node_type="变量条件节点",
+                        node_name=self.name,
+                        message=f"变量 '{self.variable_name}' 存在"
+                    )
+                else:
+                    LogManager.instance().log_failure(
+                        node_type="变量条件节点",
+                        node_name=self.name,
+                        reason=f"变量 '{self.variable_name}' 不存在"
+                    )
+                return result
 
             if self.operator == "not_exists":
-                return value is None
+                result = value is None
+                if result:
+                    LogManager.instance().log_success(
+                        node_type="变量条件节点",
+                        node_name=self.name,
+                        message=f"变量 '{self.variable_name}' 不存在"
+                    )
+                else:
+                    LogManager.instance().log_failure(
+                        node_type="变量条件节点",
+                        node_name=self.name,
+                        reason=f"变量 '{self.variable_name}' 存在，值为: {value}"
+                    )
+                return result
 
-            inferred_target = self._infer_type(value, self.target_value)
+            if value is None:
+                LogManager.instance().log_failure(
+                    node_type="变量条件节点",
+                    node_name=self.name,
+                    reason=f"变量 '{self.variable_name}' 不存在"
+                )
+                return False
+
+            inferred_target = self._infer_type(value, self.compare_value)
 
             if self.operator in self.OPERATORS:
-                return self.OPERATORS[self.operator](value, inferred_target)
+                result = self.OPERATORS[self.operator](value, inferred_target)
+                if result:
+                    LogManager.instance().log_success(
+                        node_type="变量条件节点",
+                        node_name=self.name,
+                        message=f"比较: {value} {self.operator} {inferred_target} = True"
+                    )
+                else:
+                    LogManager.instance().log_failure(
+                        node_type="变量条件节点",
+                        node_name=self.name,
+                        reason=f"比较: {value} {self.operator} {inferred_target} = False"
+                    )
+                return result
 
+            LogManager.instance().log_failure(
+                node_type="变量条件节点",
+                node_name=self.name,
+                reason=f"未知运算符: {self.operator}"
+            )
             return False
         except Exception as e:
-            from bt_utils.log_manager import LogManager
             LogManager.instance().log_failure(
                 node_type="变量条件节点",
                 node_name=self.name,
@@ -105,7 +157,7 @@ class VariableConditionNode(ConditionNode):
         data = super().to_dict()
         data["config"]["variable_name"] = self.variable_name
         data["config"]["operator"] = self.operator
-        data["config"]["target_value"] = self.target_value
+        data["config"]["compare_value"] = self.compare_value
         return data
 
     @classmethod
@@ -114,5 +166,5 @@ class VariableConditionNode(ConditionNode):
         node = cls(node_id=data.get("id"), config=config)
         node.variable_name = config.get("variable_name", "")
         node.operator = config.get("operator", "==")
-        node.target_value = config.get("target_value", "")
+        node.compare_value = config.get("compare_value", "")
         return node

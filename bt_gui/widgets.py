@@ -210,6 +210,7 @@ def create_bordered_option_menu(parent, values, variable=None, width=70, height=
                             dropdown_fg_color=dark_colors['bg_secondary'], dropdown_text_color=dark_colors['text_primary'],
                             dropdown_hover_color=dark_colors['border'],
                             corner_radius=5)
+    menu.pack()
     return menu
 
 

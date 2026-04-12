@@ -24,6 +24,8 @@ class LogEntry:
         time_str = self.timestamp.strftime("%H:%M:%S")
         
         if self.level == LogLevel.SUCCESS:
+            if self.message:
+                return f"[{time_str}] ✅ {self.node_type} \"{self.node_name}\" - 成功: {self.message}"
             return f"[{time_str}] ✅ {self.node_type} \"{self.node_name}\" - 成功"
         elif self.level == LogLevel.FAILURE:
             return f"[{time_str}] ❌ {self.node_type} \"{self.node_name}\" - 失败: {self.message}"
@@ -58,12 +60,20 @@ class LogManager:
     def log(self, entry: LogEntry) -> None:
         with self._buffer_lock:
             self._buffer.append(entry)
+        
+        try:
+            from bt_utils.ui_dispatcher import UIUpdateDispatcher
+            dispatcher = UIUpdateDispatcher.get_instance()
+            dispatcher.dispatch_log_flush()
+        except ImportError:
+            pass
     
-    def log_success(self, node_type: str, node_name: str) -> None:
+    def log_success(self, node_type: str, node_name: str, message: str = "") -> None:
         self.log(LogEntry(
             level=LogLevel.SUCCESS,
             node_type=node_type,
-            node_name=node_name
+            node_name=node_name,
+            message=message
         ))
     
     def log_failure(self, node_type: str, node_name: str, reason: str) -> None:

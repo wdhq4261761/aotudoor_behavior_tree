@@ -26,6 +26,7 @@ NODE_CONFIG_SCHEMAS = {
         {"key": "region", "label": "检测区域", "type": "region"},
         {"key": "target_color", "label": "目标颜色", "type": "color"},
         {"key": "tolerance", "label": "容差", "type": "number", "min": 0, "max": 100, "default": 10},
+        {"key": "min_pixels", "label": "最小像素数", "type": "number", "min": 1, "default": 1},
         {"key": "position_key", "label": "位置变量名", "type": "text", "default": "last_detection_position"},
     ],
     "NumberConditionNode": [
@@ -36,6 +37,7 @@ NODE_CONFIG_SCHEMAS = {
         {"key": "compare_mode", "label": "比较模式", "type": "select", "options": ["<", "<=", ">", ">=", "==", "!="], "default": "=="},
         {"key": "threshold", "label": "比较值", "type": "number", "default": 0},
         {"key": "min_confidence", "label": "置信度阈值(%)", "type": "number", "min": 0, "max": 100, "default": 50},
+        {"key": "value_key", "label": "值变量名", "type": "text", "default": "last_number_value"},
         {"key": "position_key", "label": "位置变量名", "type": "text", "default": "last_detection_position"},
     ],
     "VariableConditionNode": [
@@ -63,9 +65,12 @@ NODE_CONFIG_SCHEMAS = {
         {"key": "use_blackboard", "label": "移动到最近检测点", "type": "bool", "default": False},
         {"key": "position_key", "label": "黑板变量名", "type": "text", "default": "last_detection_position"},
         {"key": "relative", "label": "相对移动", "type": "bool", "default": False},
+        {"key": "smooth", "label": "平滑移动", "type": "bool", "default": True},
         {"key": "move_type", "label": "移动类型", "type": "select", "options": ["移动", "拖拽"], "default": "移动"},
         {"key": "drag_button", "label": "拖拽按钮", "type": "select", "options": ["left", "right", "middle"], "default": "left"},
         {"key": "end_position", "label": "拖拽终点", "type": "position"},
+        {"key": "use_blackboard_end", "label": "终点使用黑板位置", "type": "bool", "default": False},
+        {"key": "position_key_end", "label": "终点位置变量名", "type": "text", "default": ""},
         {"key": "drag_duration", "label": "拖拽时长(ms)", "type": "number", "default": 0},
     ],
     "MouseScrollNode": [
@@ -88,12 +93,15 @@ NODE_CONFIG_SCHEMAS = {
     "CodeNode": [
         {"key": "code_path", "label": "代码路径", "type": "file", "width": 120, "filetypes": [("所有文件", "*.*")]},
         {"key": "code_type", "label": "代码类型", "type": "select", "options": ["auto", "python", "batch", "powershell"], "default": "auto"},
+        {"key": "args", "label": "命令行参数", "type": "text"},
+        {"key": "wait_complete", "label": "等待执行完成", "type": "bool", "default": True},
     ],
     "AlarmNode": [
         {"key": "sound_path", "label": "音频文件", "type": "file", "width": 120, "filetypes": [("所有文件", "*.*")]},
         {"key": "volume", "label": "音量(0-100,空用全局)", "type": "number", "min": 0, "max": 100, "default": 70},
         {"key": "interval_ms", "label": "播放间隔(ms)", "type": "number", "min": 0, "default": 0},
         {"key": "wait_complete", "label": "等待播放完成", "type": "bool", "default": True},
+        {"key": "repeat_count", "label": "重复次数(0不重复,-1无限)", "type": "number", "min": -1, "default": 0},
     ],
     "ParallelNode": [
         {"key": "success_policy", "label": "成功策略", "type": "select", "options": ["require_all", "require_one"], "default": "require_all"},

@@ -1,6 +1,7 @@
 from bt_core.nodes import ActionNode, NodeStatus
 from bt_core.config import NodeConfig
 from typing import Dict, Any, Tuple, Optional
+from bt_utils.log_manager import LogManager
 
 
 class MouseScrollNode(ActionNode):
@@ -8,43 +9,65 @@ class MouseScrollNode(ActionNode):
 
     def __init__(self, node_id: str = None, config: NodeConfig = None):
         super().__init__(node_id, config)
-        self.amount = self.config.get_int("amount", 1)
-        self.position: Optional[Tuple[int, int]] = self.config.get("position", None)
-        self.use_blackboard = self.config.get_bool("use_blackboard", False)
-        self.position_key = self.config.get("position_key", "last_detection_position")
+        self.distance = self.config.get_int("distance", 5)
+        self.clicks = self.config.get_int("clicks", 1)
+        self.direction = self.config.get("direction", "向上")
 
     def _execute_action(self, context) -> NodeStatus:
         try:
-            scroll_position = self.position
-
-            if self.use_blackboard:
-                bb_position = context.blackboard.get(self.position_key)
-                if bb_position:
-                    scroll_position = bb_position
-
-            if scroll_position:
-                context.execute_mouse_move(scroll_position, relative=False)
-
-            context.execute_mouse_scroll(self.amount, scroll_position)
-            return NodeStatus.SUCCESS
+            scroll_distance = self.distance
+            scroll_direction = "垂直"
+            
+            if self.direction == "向上":
+                scroll_distance = abs(self.distance)
+                scroll_direction = "垂直"
+            elif self.direction == "向下":
+                scroll_distance = -abs(self.distance)
+                scroll_direction = "垂直"
+            elif self.direction == "向左":
+                scroll_distance = -abs(self.distance)
+                scroll_direction = "水平"
+            elif self.direction == "向右":
+                scroll_distance = abs(self.distance)
+                scroll_direction = "水平"
+            
+            success = context.execute_mouse_scroll(scroll_distance, self.clicks, scroll_direction)
+            
+            if success:
+                LogManager.instance().log_success(
+                    node_type="鼠标滚轮节点",
+                    node_name=self.name,
+                    message=f"{self.direction}滚动 {abs(self.distance)}距离 × {self.clicks}次"
+                )
+                return NodeStatus.SUCCESS
+            else:
+                LogManager.instance().log_failure(
+                    node_type="鼠标滚轮节点",
+                    node_name=self.name,
+                    reason="滚轮执行失败"
+                )
+                return NodeStatus.FAILURE
+                
         except Exception as e:
-            print(f"[WARN] MouseScrollNode错误: {e}")
+            LogManager.instance().log_failure(
+                node_type="鼠标滚轮节点",
+                node_name=self.name,
+                reason=str(e)
+            )
             return NodeStatus.FAILURE
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["amount"] = self.amount
-        data["config"]["position"] = self.position
-        data["config"]["use_blackboard"] = self.use_blackboard
-        data["config"]["position_key"] = self.position_key
+        data["config"]["distance"] = self.distance
+        data["config"]["clicks"] = self.clicks
+        data["config"]["direction"] = self.direction
         return data
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MouseScrollNode":
         config = NodeConfig.from_dict(data.get("config", {}))
         node = cls(node_id=data.get("id"), config=config)
-        node.amount = config.get_int("amount", 1)
-        node.position = config.get("position", None)
-        node.use_blackboard = config.get_bool("use_blackboard", False)
-        node.position_key = config.get("position_key", "last_detection_position")
+        node.distance = config.get_int("distance", 5)
+        node.clicks = config.get_int("clicks", 1)
+        node.direction = config.get("direction", "向上")
         return node

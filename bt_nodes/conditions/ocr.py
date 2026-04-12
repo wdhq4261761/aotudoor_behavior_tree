@@ -22,8 +22,8 @@ class OCRConditionNode(ConditionNode):
         try:
             screenshot = context.get_screenshot(self.region)
 
-            found, position = OCRManager.instance().recognize(
-                screenshot, self.keywords, self.language
+            found, position, all_text = OCRManager.instance().recognize(
+                screenshot, self.keywords, self.language, region=self.region
             )
 
             if found:

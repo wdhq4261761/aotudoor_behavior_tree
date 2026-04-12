@@ -162,3 +162,11 @@ class InputController:
         if position:
             pyautogui.moveTo(position[0], position[1])
         pyautogui.scroll(amount)
+
+    def get_position(self) -> Tuple[int, int]:
+        """获取当前鼠标位置
+
+        Returns:
+            当前鼠标位置 (x, y)
+        """
+        return pyautogui.position()

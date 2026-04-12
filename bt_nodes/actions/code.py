@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from bt_core.nodes import ActionNode, NodeStatus
 from bt_core.config import NodeConfig
 from typing import Dict, Any, List, Optional
@@ -23,8 +24,11 @@ class CodeNode(ActionNode):
         self.args: List[str] = self.config.get("args", [])
         self.wait_complete = self.config.get_bool("wait_complete", True)
         self._process: Optional[subprocess.Popen] = None
+        self._code_started = False
         self._aborted = False
         self._lock = threading.Lock()
+        self._stdout_buffer = ""
+        self._stderr_buffer = ""
 
     def _detect_code_type(self) -> str:
         if self.code_type != "auto":
@@ -59,7 +63,7 @@ class CodeNode(ActionNode):
         return cmd
 
     def _execute_action(self, context) -> NodeStatus:
-        from bt_utils.log_manager import LogManager, LogLevel
+        from bt_utils.log_manager import LogManager
         
         with self._lock:
             self._aborted = False
@@ -102,71 +106,92 @@ class CodeNode(ActionNode):
                 )
                 return NodeStatus.FAILURE
 
-            cmd = self._build_command(absolute_code_path)
+            if not self.wait_complete:
+                cmd = self._build_command(absolute_code_path)
+                subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                LogManager.instance().log_success(
+                    node_type="代码节点",
+                    node_name=self.name,
+                    message="已启动（不等待完成）"
+                )
+                return NodeStatus.SUCCESS
+
+            if not self._code_started:
+                cmd = self._build_command(absolute_code_path)
+                
+                import locale
+                preferred_encoding = locale.getpreferredencoding(False)
+                
+                LogManager.instance().log_info(
+                    node_type="代码节点",
+                    node_name=self.name,
+                    message=f"启动代码: {' '.join(cmd)}"
+                )
+                
+                self._process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding=preferred_encoding,
+                    errors='replace'
+                )
+                self._code_started = True
+                self._stdout_buffer = ""
+                self._stderr_buffer = ""
+                return NodeStatus.RUNNING
             
-            import locale
-            preferred_encoding = locale.getpreferredencoding(False)
+            with self._lock:
+                if self._aborted:
+                    return NodeStatus.FAILURE
             
-            self._process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding=preferred_encoding,
-                errors='replace'
-            )
+            if not context.check_running():
+                self._terminate_process()
+                return NodeStatus.ABORTED
             
-            if self.wait_complete:
-                try:
-                    stdout, stderr = self._process.communicate()
-                    
-                    with self._lock:
-                        if self._aborted:
-                            LogManager.instance().log_info(
-                                node_type="代码节点",
-                                node_name=self.name,
-                                message="执行已被中止"
-                            )
-                            return NodeStatus.FAILURE
-                    
-                    if self._process.returncode != 0:
-                        error_msg = f"返回码: {self._process.returncode}"
-                        if stderr:
-                            error_msg += f", 错误: {stderr[:200]}"
-                        
-                        LogManager.instance().log_failure(
+            if self._process is None:
+                return NodeStatus.FAILURE
+            
+            poll_result = self._process.poll()
+            if poll_result is None:
+                self._read_available_output()
+                return NodeStatus.RUNNING
+            
+            self._read_available_output()
+            
+            stdout = self._stdout_buffer
+            stderr = self._stderr_buffer
+            
+            self._code_started = False
+            self._process = None
+            self._stdout_buffer = ""
+            self._stderr_buffer = ""
+            
+            if poll_result == 0:
+                if stdout and stdout.strip():
+                    output_lines = stdout.strip().split('\n')
+                    for line in output_lines:
+                        LogManager.instance().log_info(
                             node_type="代码节点",
                             node_name=self.name,
-                            reason=error_msg
+                            message=line
                         )
-                        return NodeStatus.FAILURE
-                    
-                    if stdout and stdout.strip():
-                        output_lines = stdout.strip().split('\n')
-                        for line in output_lines:
-                            LogManager.instance().log_info(
-                                node_type="代码节点",
-                                node_name=self.name,
-                                message=line
-                            )
-                    else:
-                        LogManager.instance().log_success(
-                            node_type="代码节点",
-                            node_name=self.name
-                        )
-                    return NodeStatus.SUCCESS
-                    
-                except Exception as e:
-                    with self._lock:
-                        if self._aborted:
-                            return NodeStatus.FAILURE
-                    raise
-            else:
                 LogManager.instance().log_success(
                     node_type="代码节点",
                     node_name=self.name
                 )
                 return NodeStatus.SUCCESS
+            else:
+                error_msg = f"返回码: {poll_result}"
+                if stderr:
+                    error_msg += f", 错误: {stderr[:200]}"
+                
+                LogManager.instance().log_failure(
+                    node_type="代码节点",
+                    node_name=self.name,
+                    reason=error_msg
+                )
+                return NodeStatus.FAILURE
 
         except Exception as e:
             LogManager.instance().log_failure(
@@ -175,13 +200,29 @@ class CodeNode(ActionNode):
                 reason=f"执行异常: {str(e)}"
             )
             return NodeStatus.FAILURE
-        finally:
-            self._process = None
 
-    def abort(self, context) -> None:
-        with self._lock:
-            self._aborted = True
+    def _read_available_output(self) -> None:
+        if self._process is None:
+            return
         
+        try:
+            import select
+            if hasattr(select, 'select'):
+                while True:
+                    ready, _, _ = select.select([self._process.stdout, self._process.stderr], [], [], 0)
+                    if not ready:
+                        break
+                    for pipe in ready:
+                        line = pipe.readline()
+                        if line:
+                            if pipe == self._process.stdout:
+                                self._stdout_buffer += line
+                            else:
+                                self._stderr_buffer += line
+        except Exception:
+            pass
+
+    def _terminate_process(self) -> None:
         if self._process and self._process.poll() is None:
             try:
                 self._process.terminate()
@@ -193,7 +234,21 @@ class CodeNode(ActionNode):
             except Exception:
                 pass
         self._process = None
+        self._code_started = False
+
+    def abort(self, context) -> None:
+        with self._lock:
+            self._aborted = True
+        
+        self._terminate_process()
         super().abort(context)
+    
+    def reset(self) -> None:
+        self._terminate_process()
+        self._aborted = False
+        self._stdout_buffer = ""
+        self._stderr_buffer = ""
+        super().reset()
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()

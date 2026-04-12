@@ -63,6 +63,13 @@ class OCRManager:
         return cls._instance
 
     @classmethod
+    def instance(cls):
+        """获取OCRManager单例实例"""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
     def set_unavailable(cls, reason: str):
         """设置OCR不可用
         
@@ -328,14 +335,35 @@ class OCRManager:
         Returns:
             (是否识别成功, 数字值, 所有识别文本) 元组
         """
+        result = self.recognize_number_with_position(image, language, preprocess_mode, extract_mode, extract_pattern, min_confidence)
+        return result[0], result[1], result[2]
+
+    def recognize_number_with_position(self, image: Image.Image, language: str = "eng",
+                                        preprocess_mode: str = "normal",
+                                        extract_mode: str = "无规则",
+                                        extract_pattern: str = "",
+                                        min_confidence: float = 0.5) -> Tuple[bool, Optional[float], str, Optional[Tuple[int, int]]]:
+        """识别数字（带位置）
+
+        Args:
+            image: PIL.Image 图像
+            language: OCR语言
+            preprocess_mode: 预处理模式
+            extract_mode: 提取模式 (无规则/x/y/自定义)
+            extract_pattern: 自定义提取模式（使用*作为通配符）
+            min_confidence: 最小置信度 (RapidOCR自动过滤低置信度结果)
+
+        Returns:
+            (是否识别成功, 数字值, 所有识别文本, 位置坐标) 元组
+        """
         try:
             if not self._available:
                 print(f"[OCR] OCR功能不可用: {self._unavailable_reason}")
-                return False, None, ""
+                return False, None, "", None
             
             if self._engine is None:
                 print(f"[OCR] 错误: RapidOCR 引擎未初始化！")
-                return False, None, ""
+                return False, None, "", None
             
             print(f"[OCR] 开始数字识别 - 语言: {language}, 提取模式: {extract_mode}")
             print(f"[OCR] 图像尺寸: {image.size}, 模式: {image.mode}")
@@ -350,7 +378,7 @@ class OCRManager:
             
             if result is None or result.txts is None or len(result.txts) == 0:
                 print(f"[OCR] 未检测到文本")
-                return False, None, ""
+                return False, None, "", None
             
             all_text = " ".join(result.txts)
             print(f"[OCR] 识别文本: {all_text}")
@@ -362,17 +390,31 @@ class OCRManager:
             print(f"[OCR] 提取数字结果: {extracted}")
             
             if extracted is not None:
-                print(f"[OCR] 成功提取数字: {extracted}")
-                return True, extracted, all_text
+                position = None
+                if result.boxes is not None and len(result.boxes) > 0:
+                    box = result.boxes[0]
+                    center_x = int((box[0][0] + box[2][0]) / 2)
+                    center_y = int((box[0][1] + box[2][1]) / 2)
+                    
+                    if image.size != processed.size:
+                        scale_x = image.size[0] / processed.size[0]
+                        scale_y = image.size[1] / processed.size[1]
+                        center_x = int(center_x * scale_x)
+                        center_y = int(center_y * scale_y)
+                    
+                    position = (center_x, center_y)
+                
+                print(f"[OCR] 成功提取数字: {extracted}, 位置: {position}")
+                return True, extracted, all_text, position
             
             print(f"[OCR] 未能提取数字")
-            return False, None, all_text
+            return False, None, all_text, None
         
         except Exception as e:
             print(f"[OCR] 数字识别错误: {e}")
             import traceback
             traceback.print_exc()
-            return False, None, ""
+            return False, None, "", None
 
     def _extract_number(self, text: str, extract_mode: str,
                         extract_pattern: str) -> Optional[float]:
