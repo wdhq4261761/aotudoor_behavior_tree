@@ -99,9 +99,7 @@ NODE_CONFIG_SCHEMAS = {
     "AlarmNode": [
         {"key": "sound_path", "label": "音频文件", "type": "file", "width": 120, "filetypes": [("所有文件", "*.*")]},
         {"key": "volume", "label": "音量(0-100,空用全局)", "type": "number", "min": 0, "max": 100, "default": 70},
-        {"key": "interval_ms", "label": "播放间隔(ms)", "type": "number", "min": 0, "default": 0},
         {"key": "wait_complete", "label": "等待播放完成", "type": "bool", "default": True},
-        {"key": "repeat_count", "label": "重复次数(0不重复,-1无限)", "type": "number", "min": -1, "default": 0},
     ],
     "ParallelNode": [
         {"key": "success_policy", "label": "成功策略", "type": "select", "options": ["require_all", "require_one"], "default": "require_all"},

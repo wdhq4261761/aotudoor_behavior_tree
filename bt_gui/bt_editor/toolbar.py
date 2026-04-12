@@ -54,7 +54,8 @@ class EditorToolbar(ctk.CTkFrame):
         self._create_edit_buttons(left_section)
         self._create_separator(left_section)
         self._create_run_buttons(left_section)
-        self._create_path_display(left_section)
+        
+        self._create_path_display(main_container)
         
         right_section = ctk.CTkFrame(main_container, fg_color="transparent")
         right_section.pack(side="right")
@@ -75,7 +76,7 @@ class EditorToolbar(ctk.CTkFrame):
         ctk.CTkButton(
             file_frame,
             text="新建项目",
-            width=80,
+            width=70,
             fg_color=self._dark_colors['bg_tertiary'],
             hover_color=self._dark_colors['border'],
             text_color=self._dark_colors['text_primary'],
@@ -86,7 +87,7 @@ class EditorToolbar(ctk.CTkFrame):
         ctk.CTkButton(
             file_frame,
             text="打开项目",
-            width=80,
+            width=70,
             fg_color=self._dark_colors['bg_tertiary'],
             hover_color=self._dark_colors['border'],
             text_color=self._dark_colors['text_primary'],
@@ -97,7 +98,7 @@ class EditorToolbar(ctk.CTkFrame):
         ctk.CTkButton(
             file_frame,
             text="保存项目",
-            width=80,
+            width=70,
             fg_color=self._dark_colors['primary'],
             hover_color=self._dark_colors['primary_hover'],
             command=self._on_save_click,
@@ -106,7 +107,7 @@ class EditorToolbar(ctk.CTkFrame):
         
         ctk.CTkButton(
             file_frame,
-            text="导出",
+            text="导出项目",
             width=70,
             fg_color=self._dark_colors['bg_tertiary'],
             hover_color=self._dark_colors['border'],
@@ -123,7 +124,7 @@ class EditorToolbar(ctk.CTkFrame):
             'font': Theme.get_font('sm'),
             'height': Theme.DIMENSIONS['button_height'],
             'corner_radius': Theme.DIMENSIONS['button_corner_radius'],
-            'width': 70,
+            'width': 60,
             'fg_color': self._dark_colors['bg_tertiary'],
             'hover_color': self._dark_colors['border'],
             'text_color': self._dark_colors['text_primary'],
@@ -170,8 +171,8 @@ class EditorToolbar(ctk.CTkFrame):
         
         self.start_btn = ctk.CTkButton(
             run_frame,
-            text="▶ 开始运行",
-            width=100,
+            text="▶ 开始",
+            width=60,
             font=Theme.get_font('sm'),
             height=Theme.DIMENSIONS['button_height'],
             corner_radius=Theme.DIMENSIONS['button_corner_radius'],
@@ -183,8 +184,8 @@ class EditorToolbar(ctk.CTkFrame):
         
         self.stop_btn = ctk.CTkButton(
             run_frame,
-            text="⏹ 停止运行",
-            width=100,
+            text="⏹ 停止",
+            width=60,
             font=Theme.get_font('sm'),
             height=Theme.DIMENSIONS['button_height'],
             corner_radius=Theme.DIMENSIONS['button_corner_radius'],
@@ -197,7 +198,7 @@ class EditorToolbar(ctk.CTkFrame):
     
     def _create_path_display(self, parent):
         path_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        path_frame.pack(side="left")
+        path_frame.pack(side="left", fill="x", expand=True, padx=(Theme.DIMENSIONS['spacing_md'], 0))
         
         self.file_path_var = StringVar(value="未保存")
         
@@ -208,11 +209,10 @@ class EditorToolbar(ctk.CTkFrame):
             text_color=self._dark_colors['text_muted'],
             fg_color=self._dark_colors['bg_secondary'],
             border_width=0,
-            width=200,
             height=Theme.DIMENSIONS['button_height'],
             state="readonly"
         )
-        self.file_path_entry.pack(side="left", padx=(Theme.DIMENSIONS['spacing_md'], 0))
+        self.file_path_entry.pack(fill="x", expand=True)
     
     def _create_open_folder_button(self, parent):
         self.open_folder_btn = ctk.CTkButton(
@@ -309,13 +309,7 @@ class EditorToolbar(ctk.CTkFrame):
     
     def set_project_path(self, project_root: Optional[str]):
         if project_root:
-            max_length = 30
-            if len(project_root) > max_length:
-                display_text = "..." + project_root[-(max_length-3):]
-            else:
-                display_text = project_root
-            
-            self.file_path_var.set(display_text)
+            self.file_path_var.set(project_root)
             self.file_path_entry.tooltip = project_root
         else:
             self.file_path_var.set("未保存")

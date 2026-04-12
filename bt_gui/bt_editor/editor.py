@@ -1060,10 +1060,15 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             messagebox.showerror("错误", f"无法打开文件夹: {str(e)}")
     
     def _start_running(self):
+        print(f"[DEBUG] _start_running 被调用，当前运行状态: {self._is_running}")
+        print(f"[DEBUG] GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
+        
         if self._is_running:
+            print("[DEBUG] 已经在运行中，跳过启动")
             return
         
         if self.engine and self.engine._running:
+            print("[DEBUG] 引擎已在运行，跳过启动")
             return
         
         if self.property_panel:
@@ -1098,9 +1103,14 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.toolbar.set_running(True)
         
         self._start_ui_polling()
+        print(f"[DEBUG] 行为树已启动，GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
 
     def _stop_running(self):
+        print(f"[DEBUG] _stop_running 被调用，当前运行状态: {self._is_running}")
+        print(f"[DEBUG] GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
+        
         if not self._is_running:
+            print("[DEBUG] 未在运行中，跳过停止")
             return
         
         self._stop_requested = True
@@ -1108,7 +1118,11 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     
     def _stop_running_in_main_thread(self):
         """在主线程中执行停止操作"""
+        print(f"[DEBUG] _stop_running_in_main_thread 被调用")
+        print(f"[DEBUG] GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
+        
         if not self._is_running:
+            print("[DEBUG] 未在运行中，跳过停止")
             return
         
         self._stop_ui_polling()
@@ -1120,9 +1134,14 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self.engine = None
             self.context = None
         
+        from bt_utils.input_controller import InputController
+        InputController.release_all()
+        
         self.canvas.after(100, self._clear_status_after_stop)
         self.toolbar.set_running(False)
         self._is_running = False
+        
+        print(f"[DEBUG] 行为树已停止，GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
     
     def _stop_ui_polling(self):
         """停止UI轮询"""

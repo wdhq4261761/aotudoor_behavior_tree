@@ -161,10 +161,6 @@ class GlobalHotkeyManager:
     def _on_release(self, key):
         """按键释放事件处理"""
         try:
-            from bt_utils.input_controller import InputController
-            if InputController.is_simulating():
-                return
-            
             key_name = self._get_key_name(key)
             if key_name and key_name in self._pressed_keys:
                 self._pressed_keys.discard(key_name)
@@ -201,6 +197,8 @@ class GlobalHotkeyManager:
         """检查是否触发了注册的热键"""
         current_combo = self._get_current_combo()
         
+        callback = None
+        triggered_keys = []
         with self._lock:
             if current_combo in self._hotkeys:
                 current_time = time.time()
@@ -211,10 +209,18 @@ class GlobalHotkeyManager:
                 
                 self._last_trigger_time[current_combo] = current_time
                 callback = self._hotkeys[current_combo]
-                try:
-                    callback()
-                except Exception as e:
-                    print(f"[WARN] 热键回调执行失败: {e}")
+                triggered_keys = list(self._pressed_keys)
+        
+        if callback:
+            try:
+                callback()
+            except Exception as e:
+                print(f"[WARN] 热键回调执行失败: {e}")
+            
+            with self._lock:
+                for key in triggered_keys:
+                    if key in self._pressed_keys:
+                        self._pressed_keys.discard(key)
     
     def _get_current_combo(self) -> str:
         """获取当前按下的组合键
@@ -223,6 +229,29 @@ class GlobalHotkeyManager:
             组合键字符串
         """
         return "+".join(sorted(self._pressed_keys))
+    
+    def is_running(self) -> bool:
+        """检查监听器是否在运行
+        
+        Returns:
+            是否在运行
+        """
+        with self._lock:
+            return self._running and self._listener is not None and self._listener.is_alive()
+    
+    def get_status(self) -> dict:
+        """获取管理器状态
+        
+        Returns:
+            状态字典
+        """
+        with self._lock:
+            return {
+                "running": self._running,
+                "listener_alive": self._listener.is_alive() if self._listener else False,
+                "registered_hotkeys": list(self._hotkeys.keys()),
+                "pressed_keys": list(self._pressed_keys)
+            }
 
 
 def get_hotkey_manager() -> GlobalHotkeyManager:

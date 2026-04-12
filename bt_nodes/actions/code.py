@@ -45,6 +45,19 @@ class CodeNode(ActionNode):
 
         return "python"
 
+    def _get_python_executable(self) -> str:
+        if getattr(sys, 'frozen', False):
+            return "python"
+        return sys.executable
+
+    def _get_startupinfo(self) -> Optional[subprocess.STARTUPINFO]:
+        if sys.platform == 'win32':
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+            return startupinfo
+        return None
+
     def _build_command(self, code_path: str = None) -> List[str]:
         if code_path is None:
             code_path = self.code_path
@@ -52,13 +65,13 @@ class CodeNode(ActionNode):
         code_type = self._detect_code_type()
         
         if code_type == "python":
-            cmd = [sys.executable, "-u", code_path]
+            cmd = [self._get_python_executable(), "-u", code_path]
         elif code_type == "batch":
             cmd = [code_path]
         elif code_type == "powershell":
             cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", code_path]
         else:
-            cmd = [sys.executable, "-u", code_path]
+            cmd = [self._get_python_executable(), "-u", code_path]
 
         if self.args:
             cmd.extend([str(arg) for arg in self.args])
@@ -157,7 +170,14 @@ class CodeNode(ActionNode):
 
             if not self.wait_complete:
                 cmd = self._build_command(absolute_code_path)
-                subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                    startupinfo=self._get_startupinfo(),
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+                )
                 LogManager.instance().log_success(
                     node_type="代码节点",
                     node_name=self.name,
@@ -177,7 +197,10 @@ class CodeNode(ActionNode):
                 self._process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
+                    stderr=subprocess.PIPE,
+                    stdin=subprocess.DEVNULL,
+                    startupinfo=self._get_startupinfo(),
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
                 )
                 self._code_started = True
                 

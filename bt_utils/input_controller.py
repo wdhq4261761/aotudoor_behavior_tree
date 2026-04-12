@@ -33,6 +33,56 @@ class InputController:
         """
         with cls._simulate_lock:
             cls._simulating = value
+    
+    @classmethod
+    def release_all(cls):
+        """释放所有按下的按键和鼠标按钮
+        
+        使用 pynput 的 Controller 来释放所有按键，无需跟踪按键状态。
+        """
+        print(f"[DEBUG] InputController.release_all() 被调用")
+        
+        cls._set_simulating(True)
+        try:
+            from pynput import keyboard, mouse
+            
+            keyboard_controller = keyboard.Controller()
+            mouse_controller = mouse.Controller()
+            
+            for key in [keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r,
+                       keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r,
+                       keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r,
+                       keyboard.Key.cmd, keyboard.Key.cmd_l, keyboard.Key.cmd_r,
+                       keyboard.Key.caps_lock, keyboard.Key.num_lock,
+                       keyboard.Key.scroll_lock]:
+                try:
+                    keyboard_controller.release(key)
+                except:
+                    pass
+            
+            for char in 'abcdefghijklmnopqrstuvwxyz0123456789':
+                try:
+                    keyboard_controller.release(char)
+                except:
+                    pass
+            
+            for key_name in ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12',
+                            'space', 'enter', 'tab', 'escape', 'backspace', 'delete', 'insert',
+                            'home', 'end', 'page_up', 'page_down', 'up', 'down', 'left', 'right']:
+                try:
+                    keyboard_controller.release(getattr(keyboard.Key, key_name, None))
+                except:
+                    pass
+            
+            mouse_controller.release(mouse.Button.left)
+            mouse_controller.release(mouse.Button.right)
+            mouse_controller.release(mouse.Button.middle)
+            
+            print(f"[DEBUG] 所有按键和鼠标按钮已释放")
+        except Exception as e:
+            print(f"[WARN] 释放按键时出错: {e}")
+        finally:
+            cls._set_simulating(False)
 
     def __init__(self):
         pyautogui.FAILSAFE = True

@@ -86,6 +86,10 @@ class BehaviorTreeApp(ctk.CTk):
         self.settings = SettingsTab(settings_tab, self)
         self.settings.pack(fill="both", expand=True)
         
+        saved_settings = self._settings.get_all_settings()
+        if saved_settings:
+            self.settings.load_settings(saved_settings)
+        
         self.main_tabview.set("🌲 行为树编辑器")
     
     def _setup_shortcuts(self):
