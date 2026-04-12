@@ -210,6 +210,89 @@ def create_bordered_option_menu(parent, values, variable=None, width=70, height=
                             dropdown_fg_color=dark_colors['bg_secondary'], dropdown_text_color=dark_colors['text_primary'],
                             dropdown_hover_color=dark_colors['border'],
                             corner_radius=5)
-    menu.pack(padx=0, pady=0)
+    return menu
+
+
+def create_color_picker(app, callback):
+    """
+    创建屏幕颜色选择器
     
-    return menu, border_frame
+    创建一个全屏透明的选择窗口，用户点击任意位置获取该位置的颜色值。
+    
+    Args:
+        app: 应用实例（需要有 root 属性或 winfo_toplevel 方法）
+        callback: 回调函数，参数为 (r, g, b) 元组
+    
+    Returns:
+        None
+    """
+    from tkinter import messagebox
+    
+    try:
+        import screeninfo
+        monitors = screeninfo.get_monitors()
+        min_x = min(monitor.x for monitor in monitors)
+        min_y = min(monitor.y for monitor in monitors)
+        max_x = max(monitor.x + monitor.width for monitor in monitors)
+        max_y = max(monitor.y + monitor.height for monitor in monitors)
+    except ImportError:
+        messagebox.showerror("错误", "screeninfo库未安装，无法支持多显示器选择。\n请运行 'pip install screeninfo' 安装该库。")
+        return
+    except Exception:
+        min_x, min_y, max_x, max_y = 0, 0, 1920, 1080
+    
+    root = app.root if hasattr(app, 'root') else app.winfo_toplevel()
+    
+    root.iconify()
+    root.update()
+    
+    selection_window = tk.Toplevel(root)
+    selection_window.overrideredirect(True)
+    selection_window.geometry(f"{max_x - min_x}x{max_y - min_y}+{min_x}+{min_y}")
+    selection_window.attributes("-alpha", 0.3)
+    selection_window.attributes("-topmost", True)
+    selection_window.configure(cursor="crosshair")
+    
+    dark_colors = Theme.get_dark_colors()
+    canvas = tk.Canvas(selection_window, bg=dark_colors['primary'], highlightthickness=0)
+    canvas.pack(fill=tk.BOTH, expand=True)
+    
+    def on_click(event):
+        selection_window.withdraw()
+        selection_window.update()
+        
+        abs_x, abs_y = event.x_root, event.y_root
+        
+        try:
+            from bt_utils.screenshot import ScreenshotManager
+            screen = ScreenshotManager().get_full_screenshot()
+        except Exception:
+            from PIL import ImageGrab
+            screen = ImageGrab.grab(all_screens=True)
+        
+        try:
+            import screeninfo
+            monitors = screeninfo.get_monitors()
+            offset_x = min(monitor.x for monitor in monitors)
+            offset_y = min(monitor.y for monitor in monitors)
+        except:
+            offset_x, offset_y = 0, 0
+        
+        rel_x = abs_x - offset_x
+        rel_y = abs_y - offset_y
+        
+        pixel = screen.getpixel((rel_x, rel_y))
+        r, g, b = pixel[:3]
+        
+        selection_window.destroy()
+        root.deiconify()
+        
+        callback((r, g, b))
+    
+    def on_escape(e):
+        selection_window.destroy()
+        root.deiconify()
+    
+    canvas.bind("<Button-1>", on_click)
+    selection_window.bind("<Escape>", on_escape)
+    selection_window.focus_set()

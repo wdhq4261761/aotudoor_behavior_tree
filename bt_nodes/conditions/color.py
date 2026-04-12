@@ -9,8 +9,10 @@ class ColorConditionNode(ConditionNode):
 
     def __init__(self, node_id: str = None, config: NodeConfig = None):
         super().__init__(node_id, config)
-        self.target_color: Tuple[int, int, int] = self.config.get("target_color", (255, 0, 0))
-        self.region: Optional[Tuple[int, int, int, int]] = self.config.get("region", None)
+        raw_color = self.config.get("target_color", (255, 0, 0))
+        self.target_color: Tuple[int, int, int] = self._parse_color(raw_color)
+        raw_region = self.config.get("region", None)
+        self.region: Optional[Tuple[int, int, int, int]] = self._parse_region(raw_region)
         self.tolerance = self.config.get_int("tolerance", 10)
 
     def _check_condition(self, context) -> bool:
@@ -46,8 +48,8 @@ class ColorConditionNode(ConditionNode):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["config"]["target_color"] = self.target_color
-        data["config"]["region"] = self.region
+        data["config"]["target_color"] = list(self.target_color) if self.target_color else [255, 0, 0]
+        data["config"]["region"] = list(self.region) if self.region else None
         data["config"]["tolerance"] = self.tolerance
         return data
 
@@ -55,7 +57,4 @@ class ColorConditionNode(ConditionNode):
     def from_dict(cls, data: Dict[str, Any]) -> "ColorConditionNode":
         config = NodeConfig.from_dict(data.get("config", {}))
         node = cls(node_id=data.get("id"), config=config)
-        node.target_color = config.get("target_color", (255, 0, 0))
-        node.region = config.get("region", None)
-        node.tolerance = config.get_int("tolerance", 10)
         return node

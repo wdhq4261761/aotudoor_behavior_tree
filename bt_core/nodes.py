@@ -490,8 +490,63 @@ class ConditionNode(Node):
             default_position_key = "last_detection_position"
         
         self.position_key = self.config.get("position_key", default_position_key)
-        self._last_check_time = -self.check_interval_ms - 1  # 确保第一次一定会执行
+        self._last_check_time = -self.check_interval_ms - 1
         self._child_index = 0
+
+    def _parse_region(self, region_config) -> tuple:
+        """解析区域配置
+        
+        Args:
+            region_config: 区域配置，支持 None、list、tuple、str 格式
+            
+        Returns:
+            tuple: (x1, y1, x2, y2) 区域坐标
+        """
+        if region_config is None:
+            return None
+        elif isinstance(region_config, (list, tuple)):
+            if len(region_config) == 4:
+                return tuple(int(x) for x in region_config)
+            return tuple(region_config)
+        elif isinstance(region_config, str):
+            try:
+                import re
+                if region_config.startswith('['):
+                    match = re.findall(r'\d+', region_config)
+                    if len(match) >= 4:
+                        return tuple(int(x) for x in match[:4])
+                parts = [int(x.strip()) for x in region_config.split(",")]
+                if len(parts) == 4:
+                    return tuple(parts)
+            except (ValueError, AttributeError):
+                pass
+        return None
+
+    def _parse_color(self, color_config) -> tuple:
+        """解析颜色配置
+        
+        Args:
+            color_config: 颜色配置，支持 None、list、tuple、str 格式
+            
+        Returns:
+            tuple: (r, g, b) 颜色值
+        """
+        if color_config is None:
+            return (255, 0, 0)
+        elif isinstance(color_config, (list, tuple)):
+            return tuple(int(c) for c in color_config[:3])
+        elif isinstance(color_config, str):
+            import re
+            match = re.search(r'RGB\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', color_config, re.IGNORECASE)
+            if match:
+                return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+            try:
+                parts = [int(x.strip()) for x in color_config.split(",")]
+                if len(parts) >= 3:
+                    return tuple(parts[:3])
+            except (ValueError, AttributeError):
+                pass
+        return (255, 0, 0)
 
     def tick(self, context: "ExecutionContext") -> NodeStatus:
         return self._execute_with_decorators(context, self._tick_internal)

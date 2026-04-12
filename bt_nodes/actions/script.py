@@ -147,7 +147,7 @@ class ScriptNode(ActionNode):
         """执行一次脚本"""
         from bt_utils.log_manager import LogManager
         
-        self._executor.run_script(self._script_content, context, loop=False)
+        self._executor.run_script(self._script_content, loop=False)
         
         while self._executor.is_running:
             with self._lock:
@@ -177,7 +177,7 @@ class ScriptNode(ActionNode):
             message="开始循环执行脚本"
         )
         
-        self._executor.run_script(self._script_content, context, loop=True)
+        self._executor.run_script(self._script_content, loop=True)
         
         while self._executor.is_running:
             with self._lock:

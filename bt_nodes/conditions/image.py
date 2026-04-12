@@ -12,34 +12,34 @@ class ImageConditionNode(ConditionNode):
     def __init__(self, node_id: str = None, config: NodeConfig = None):
         super().__init__(node_id, config)
         self.template_path = self.config.get("template_path", "")
-        self.region: Optional[Tuple[int, int, int, int]] = self.config.get("region", None)
+        raw_region = self.config.get("region", None)
+        self.region: Optional[Tuple[int, int, int, int]] = self._parse_region(raw_region)
         self.threshold = self.config.get_float("threshold", 0.8)
-        self._template_image: Optional[Image.Image] = None
+
+        self._template_image = None
+
+        self._last_template_path = None
+
+        self._last_template_mtime = 0
 
     def _check_condition(self, context) -> bool:
         try:
-            template_path = self.template_path
-            
-            if not template_path:
+            if not self.template_path:
                 LogManager.instance().log_failure(
                     node_type="图像检测节点",
                     node_name=self.name,
                     reason="模板路径为空"
                 )
                 return False
-            
-            absolute_template_path = template_path
-            
-            if template_path.startswith("./"):
-                if hasattr(context, 'resolve_path') and context.resolve_path:
-                    absolute_template_path = context.resolve_path(template_path)
+
+            absolute_template_path = self.template_path
+            if self.template_path.startswith("./"):
+                if hasattr(context, 'resolve_path'):
+                    absolute_template_path = context.resolve_path(self.template_path)
                 elif hasattr(context, 'project_root'):
-                    project_root = context.project_root
-                    absolute_template_path = os.path.join(project_root, template_path[2:])
+                    absolute_template_path = os.path.join(context.project_root, self.template_path[2:])
             else:
-                if not os.path.isabs(template_path):
-                    absolute_template_path = os.path.abspath(template_path)
-            
+                absolute_template_path = os.path.abspath(self.template_path)
             if not os.path.exists(absolute_template_path):
                 LogManager.instance().log_failure(
                     node_type="图像检测节点",
@@ -47,17 +47,15 @@ class ImageConditionNode(ConditionNode):
                     reason=f"模板文件不存在: {absolute_template_path}"
                 )
                 return False
-
-            if self._template_image is None:
+            if self._template_image is None or self._last_template_path != absolute_template_path:
                 self._template_image = Image.open(absolute_template_path)
-
+                self._last_template_path = absolute_template_path
+                self._last_template_mtime = os.path.getmtime(absolute_template_path)
             screenshot = context.get_screenshot(self.region)
-
             from bt_utils.image_processor import ImageProcessor
             found, position = ImageProcessor.find_template(
                 screenshot, self._template_image, self.threshold
             )
-
             if found and position:
                 context.blackboard.set(self.position_key, position)
                 LogManager.instance().log_success(
@@ -83,7 +81,7 @@ class ImageConditionNode(ConditionNode):
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
         data["config"]["template_path"] = self.template_path
-        data["config"]["region"] = self.region
+        data["config"]["region"] = list(self.region) if self.region else None
         data["config"]["threshold"] = self.threshold
         return data
 
@@ -91,7 +89,4 @@ class ImageConditionNode(ConditionNode):
     def from_dict(cls, data: Dict[str, Any]) -> "ImageConditionNode":
         config = NodeConfig.from_dict(data.get("config", {}))
         node = cls(node_id=data.get("id"), config=config)
-        node.template_path = config.get("template_path", "")
-        node.region = config.get("region", None)
-        node.threshold = config.get_float("threshold", 0.8)
         return node

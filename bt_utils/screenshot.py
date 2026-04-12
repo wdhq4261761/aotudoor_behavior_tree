@@ -20,7 +20,7 @@ class ScreenshotManager:
         Returns:
             PIL.Image 截图对象
         """
-        return ImageGrab.grab()
+        return ImageGrab.grab(all_screens=True)
 
     def get_region_screenshot(self, region: Tuple[int, int, int, int]) -> Image.Image:
         """获取区域截图

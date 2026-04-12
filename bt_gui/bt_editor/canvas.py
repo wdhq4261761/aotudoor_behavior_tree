@@ -799,7 +799,7 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         return visible
 
     def load_tree(self, tree_data: Dict[str, Any]):
-        self.clear_canvas()
+        self.clear_canvas(force=True)
         
         nodes_data = tree_data.get("nodes", {})
         root_id = tree_data.get("root_node")

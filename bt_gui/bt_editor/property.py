@@ -1188,16 +1188,17 @@ class ColorField(FieldWidget):
         self.btn.pack(side="right")
     
     def _pick_color(self):
-        from tkinter import colorchooser
+        from bt_gui.widgets import create_color_picker
         
-        color = colorchooser.askcolor(title="选择颜色")
-        if color[0] is not None:
-            r, g, b = int(color[0][0]), int(color[0][1]), int(color[0][2])
+        def on_color_picked(rgb):
+            r, g, b = rgb
             self.var.set(f"RGB({r}, {g}, {b})")
             self._current_color = f"#{r:02x}{g:02x}{b:02x}"
             self._rgb_value = [r, g, b]
             self.preview.configure(fg_color=self._current_color)
             self.on_change(self.key, self._rgb_value)
+        
+        create_color_picker(self.app, on_color_picked)
     
     def set_value(self, value: Any):
         if isinstance(value, (list, tuple)) and len(value) >= 3:
