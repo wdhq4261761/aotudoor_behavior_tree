@@ -2,15 +2,16 @@ import json
 import os
 import datetime
 from typing import Any, Dict, Optional, List, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from bt_utils.singleton import singleton
 
 
 VERSION = "1.0.0"
 
 
-@dataclass
+@dataclass(frozen=True)
 class BlackboardConfig:
+    """黑板配置（不可变）"""
     default_position_key: str = "last_detection_position"
     default_value_key: str = "last_number_value"
     default_ocr_text_key: str = "last_ocr_text"
@@ -39,6 +40,7 @@ class BlackboardConfig:
 
 @dataclass
 class SessionConfig:
+    """会话配置"""
     last_file_path: str = ""
     recent_files: List[str] = field(default_factory=list)
     window_geometry: str = "1280x800"
@@ -71,6 +73,7 @@ class SettingsManager:
     - 版本管理和配置迁移
     - 延迟保存机制
     - 配置变更监听
+    - 配置缓存机制
     
     使用单例模式，线程安全。
     """
@@ -131,6 +134,9 @@ class SettingsManager:
         self._save_timer = None
         self._save_callback = None
         self._listeners: Dict[str, List[Callable]] = {}
+        
+        self._blackboard_config_cache: Optional[BlackboardConfig] = None
+        self._session_config_cache: Optional[SessionConfig] = None
         
         self._load_settings()
     
@@ -280,6 +286,11 @@ class SettingsManager:
         
         data[keys[-1]] = value
         
+        if key.startswith("blackboard"):
+            self._blackboard_config_cache = None
+        elif key.startswith("session"):
+            self._session_config_cache = None
+        
         self._notify_listeners(key, value)
         
         if auto_save:
@@ -321,6 +332,8 @@ class SettingsManager:
         """
         if key is None:
             self.settings = dict(self.DEFAULT_SETTINGS)
+            self._blackboard_config_cache = None
+            self._session_config_cache = None
         else:
             keys = key.split('.')
             default_value = self.DEFAULT_SETTINGS
@@ -336,22 +349,37 @@ class SettingsManager:
         self.save_settings()
     
     def get_blackboard_config(self) -> BlackboardConfig:
-        """获取黑板配置"""
+        """获取黑板配置（带缓存）"""
+        if self._blackboard_config_cache is not None:
+            return self._blackboard_config_cache
+        
         data = self.get("blackboard", {})
-        return BlackboardConfig.from_dict(data)
+        self._blackboard_config_cache = BlackboardConfig.from_dict(data)
+        return self._blackboard_config_cache
     
     def set_blackboard_config(self, config: BlackboardConfig) -> None:
         """设置黑板配置"""
-        self.set("blackboard", config.to_dict())
+        self._blackboard_config_cache = config
+        self.set("blackboard", asdict(config))
     
     def get_session_config(self) -> SessionConfig:
-        """获取会话配置"""
+        """获取会话配置（带缓存）"""
+        if self._session_config_cache is not None:
+            return self._session_config_cache
+        
         data = self.get("session", {})
-        return SessionConfig.from_dict(data)
+        self._session_config_cache = SessionConfig.from_dict(data)
+        return self._session_config_cache
     
     def set_session_config(self, config: SessionConfig) -> None:
         """设置会话配置"""
-        self.set("session", config.to_dict())
+        self._session_config_cache = config
+        self.set("session", asdict(config))
+    
+    def invalidate_config_cache(self) -> None:
+        """使配置缓存失效"""
+        self._blackboard_config_cache = None
+        self._session_config_cache = None
     
     def get_last_file_path(self) -> str:
         """获取上次打开的文件路径"""
@@ -395,6 +423,7 @@ class SettingsManager:
         """加载所有设置"""
         self.settings = settings
         self._merge_defaults()
+        self.invalidate_config_cache()
         self.save_settings()
 
 

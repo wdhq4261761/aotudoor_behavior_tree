@@ -337,73 +337,91 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         
         self._set_modified(True)
     
-    def _delete_selected(self):
-        if self.canvas.selected_nodes:
-            nodes_to_delete = []
-            protected_nodes = []
-            
-            for node_id in self.canvas.selected_nodes:
-                node_item = self.canvas.nodes.get(node_id)
-                if node_item and node_item.is_protected():
-                    protected_nodes.append(node_id)
-                    continue
-                nodes_to_delete.append(node_id)
-            
-            if protected_nodes:
-                messagebox.showwarning("无法删除", "开始节点不可删除")
-            
-            if nodes_to_delete:
-                self._delete_nodes(nodes_to_delete)
-        elif self.canvas.selected_node:
-            node_item = self.canvas.nodes.get(self.canvas.selected_node)
-            if node_item and node_item.is_protected():
-                messagebox.showwarning("无法删除", "开始节点不可删除")
-                return
-            self._delete_node(self.canvas.selected_node)
-        elif self.canvas.selected_connection:
-            parent_id, child_id = self.canvas.selected_connection
-            command = RemoveConnectionCommand(
-                canvas=self.canvas,
-                parent_id=parent_id,
-                child_id=child_id
-            )
-            self.command_manager.execute(command)
-            self.canvas.selected_connection = None
-            self._update_toolbar()
-            self._set_modified(True)
-    
-    def _delete_node(self, node_id: str):
-        node_item = self.canvas.nodes.get(node_id)
-        if node_item and node_item.is_protected():
-            messagebox.showwarning("无法删除", "开始节点不可删除")
-            return
+    def _check_protected_nodes(self, node_ids: List[str]) -> tuple:
+        """检查节点是否受保护
         
-        command = RemoveNodeCommand(canvas=self.canvas, node_id=node_id)
-        self.command_manager.execute(command)
-        self._update_toolbar()
-        self._set_modified(True)
-    
-    def _delete_nodes(self, node_ids: List[str]):
-        nodes_to_delete = []
-        protected_nodes = []
+        Args:
+            node_ids: 要检查的节点ID列表
+        
+        Returns:
+            (可删除节点列表, 受保护节点列表)
+        """
+        deletable = []
+        protected = []
         
         for node_id in node_ids:
             node_item = self.canvas.nodes.get(node_id)
             if node_item and node_item.is_protected():
-                protected_nodes.append(node_id)
-                continue
-            nodes_to_delete.append(node_id)
+                protected.append(node_id)
+            else:
+                deletable.append(node_id)
         
-        if protected_nodes:
+        return deletable, protected
+    
+    def _show_protected_warning(self, protected_count: int) -> None:
+        """显示受保护节点警告
+        
+        Args:
+            protected_count: 受保护节点数量
+        """
+        if protected_count > 0:
             messagebox.showwarning("无法删除", "开始节点不可删除")
+    
+    def _delete_selected(self):
+        """删除选中的节点或连接"""
+        if self.canvas.selected_nodes:
+            node_ids = list(self.canvas.selected_nodes)
+            self._delete_nodes_with_check(node_ids)
+        elif self.canvas.selected_node:
+            self._delete_nodes_with_check([self.canvas.selected_node])
+        elif self.canvas.selected_connection:
+            self._delete_connection(self.canvas.selected_connection)
+    
+    def _delete_nodes_with_check(self, node_ids: List[str]) -> None:
+        """删除节点（带保护检查）
         
-        if not nodes_to_delete:
+        Args:
+            node_ids: 要删除的节点ID列表
+        """
+        deletable, protected = self._check_protected_nodes(node_ids)
+        self._show_protected_warning(len(protected))
+        
+        if not deletable:
             return
         
-        command = RemoveNodesCommand(canvas=self.canvas, node_ids=nodes_to_delete)
+        if len(deletable) == 1:
+            command = RemoveNodeCommand(canvas=self.canvas, node_id=deletable[0])
+        else:
+            command = RemoveNodesCommand(canvas=self.canvas, node_ids=deletable)
+        
         self.command_manager.execute(command)
         self._update_toolbar()
         self._set_modified(True)
+    
+    def _delete_connection(self, connection: tuple) -> None:
+        """删除连接
+        
+        Args:
+            connection: (parent_id, child_id) 元组
+        """
+        parent_id, child_id = connection
+        command = RemoveConnectionCommand(
+            canvas=self.canvas,
+            parent_id=parent_id,
+            child_id=child_id
+        )
+        self.command_manager.execute(command)
+        self.canvas.selected_connection = None
+        self._update_toolbar()
+        self._set_modified(True)
+    
+    def _delete_node(self, node_id: str):
+        """删除单个节点（兼容旧接口）"""
+        self._delete_nodes_with_check([node_id])
+    
+    def _delete_nodes(self, node_ids: List[str]):
+        """删除多个节点（兼容旧接口）"""
+        self._delete_nodes_with_check(node_ids)
     
     def _copy_selected(self):
         if self.canvas.selected_nodes:

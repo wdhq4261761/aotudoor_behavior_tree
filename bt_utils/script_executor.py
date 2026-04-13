@@ -1,6 +1,8 @@
 import threading
 import time
 import re
+import weakref
+import atexit
 from typing import List, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor
 
@@ -10,7 +12,23 @@ class ScriptExecutor:
 
     解析和执行脚本文件，支持循环执行和暂停/恢复。
     使用线程池优化并发执行。
+    
+    支持上下文管理器协议，确保资源正确释放。
+    
+    使用方式:
+        # 方式1：上下文管理器（推荐）
+        with ScriptExecutor() as executor:
+            executor.run_script(script)
+        
+        # 方式2：手动管理
+        executor = ScriptExecutor()
+        try:
+            executor.run_script(script)
+        finally:
+            executor.shutdown()
     """
+    
+    _instances = weakref.WeakSet()
     
     _executor_pool: Optional[ThreadPoolExecutor] = None
     _futures: Dict[str, any] = {}
@@ -22,6 +40,33 @@ class ScriptExecutor:
         self._input_controller = None
         self._executor_pool = ThreadPoolExecutor(max_workers=max_workers)
         self._futures = {}
+        
+        ScriptExecutor._instances.add(self)
+    
+    def __enter__(self) -> "ScriptExecutor":
+        """进入上下文管理器"""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """退出上下文管理器，确保资源释放"""
+        self.shutdown()
+        return False
+    
+    def __del__(self):
+        """析构方法，作为资源清理的最后保障"""
+        try:
+            self.shutdown()
+        except Exception:
+            pass
+    
+    @classmethod
+    def cleanup_all(cls) -> None:
+        """清理所有实例（用于程序退出时）"""
+        for instance in list(cls._instances):
+            try:
+                instance.shutdown()
+            except Exception:
+                pass
         
     @property
     def input_controller(self):
@@ -261,3 +306,6 @@ class ScriptExecutor:
         if self._executor_pool:
             self._executor_pool.shutdown(wait=False)
             self._executor_pool = None
+
+
+atexit.register(ScriptExecutor.cleanup_all)
