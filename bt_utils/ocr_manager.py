@@ -3,32 +3,24 @@ from PIL import Image, ImageEnhance, ImageFilter
 from typing import Tuple, Optional
 import numpy as np
 import re
+from bt_utils.singleton import singleton
 
 
+@singleton
 class OCRManager:
     """OCR管理器
 
     封装RapidOCR功能，提供文字识别和数字识别。
     支持图像预处理和多语言识别。
-    使用单例模式。
+    使用单例模式，线程安全。
     """
-    _instance = None
-    _initialized: bool = False
     _engine: Optional[RapidOCR] = None
     _available: bool = True
     _unavailable_reason: str = ""
 
     CHINESE_LANGS = {"chi_sim", "chi_tra"}
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
-        if self._initialized:
-            return
-        
         if not self._available:
             return
         
@@ -38,29 +30,22 @@ class OCRManager:
             if self._engine is None:
                 raise RuntimeError("RapidOCR 引擎创建失败，返回 None")
             
-            self._initialized = True
-            
         except Exception as e:
             import traceback
             traceback.print_exc()
             self._engine = None
-            self._initialized = False
             OCRManager._available = False
             OCRManager._unavailable_reason = str(e)
 
     @classmethod
     def initialize(cls):
         """初始化OCR引擎（在应用启动时调用）"""
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
+        return cls()
 
     @classmethod
     def instance(cls):
         """获取OCRManager单例实例"""
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
+        return cls()
 
     @classmethod
     def set_unavailable(cls, reason: str):

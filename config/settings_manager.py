@@ -3,6 +3,7 @@ import os
 import datetime
 from typing import Any, Dict, Optional, List, Callable
 from dataclasses import dataclass, field
+from bt_utils.singleton import singleton
 
 
 VERSION = "1.0.0"
@@ -61,6 +62,7 @@ class SessionConfig:
         )
 
 
+@singleton
 class SettingsManager:
     """统一配置管理器
     
@@ -69,9 +71,9 @@ class SettingsManager:
     - 版本管理和配置迁移
     - 延迟保存机制
     - 配置变更监听
-    """
     
-    _instance: Optional["SettingsManager"] = None
+    使用单例模式，线程安全。
+    """
     
     VERSION = "1.0.0"
     CONFIG_FILE_NAME = "config.json"
@@ -118,18 +120,7 @@ class SettingsManager:
         }
     }
     
-    def __new__(cls, config_dir: str = None):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-    
     def __init__(self, config_dir: str = None):
-        if self._initialized:
-            return
-        
-        self._initialized = True
-        
         if config_dir is None:
             config_dir = self._get_default_config_dir()
         
@@ -145,13 +136,12 @@ class SettingsManager:
     
     @classmethod
     def get_instance(cls) -> "SettingsManager":
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
+        return cls()
     
     @classmethod
     def reset_instance(cls):
-        cls._instance = None
+        from bt_utils.singleton import reset_singleton
+        reset_singleton(cls)
     
     def _get_default_config_dir(self) -> str:
         """获取默认配置目录

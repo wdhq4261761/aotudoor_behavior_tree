@@ -5,16 +5,6 @@ from .image_processor import ImageProcessor
 from .recorder import ScriptRecorder
 from .script_executor import ScriptExecutor
 from .alarm import AlarmPlayer
-from config.settings_manager import (
-    SettingsManager as ConfigManager,
-    BlackboardConfig,
-    SessionConfig,
-    get_default_position_key,
-    get_default_value_key,
-    get_blackboard_config,
-    get_settings_manager,
-    get_session_config,
-)
 from .consistency_checker import (
     ConsistencyChecker,
     ConsistencyReport,
@@ -47,8 +37,38 @@ from .resource_manager import (
     get_resource_path,
 )
 
-BehaviorTreeConfig = SessionConfig
-get_behavior_tree_config = get_session_config
+
+def __getattr__(name):
+    """延迟导入 config 模块以避免循环导入"""
+    if name in ("ConfigManager", "SettingsManager"):
+        from config.settings_manager import SettingsManager
+        return SettingsManager
+    elif name == "BlackboardConfig":
+        from config.settings_manager import BlackboardConfig
+        return BlackboardConfig
+    elif name == "SessionConfig":
+        from config.settings_manager import SessionConfig
+        return SessionConfig
+    elif name == "BehaviorTreeConfig":
+        from config.settings_manager import SessionConfig
+        return SessionConfig
+    elif name == "get_default_position_key":
+        from config.settings_manager import get_default_position_key
+        return get_default_position_key
+    elif name == "get_default_value_key":
+        from config.settings_manager import get_default_value_key
+        return get_default_value_key
+    elif name == "get_blackboard_config":
+        from config.settings_manager import get_blackboard_config
+        return get_blackboard_config
+    elif name in ("get_behavior_tree_config", "get_session_config"):
+        from config.settings_manager import get_session_config
+        return get_session_config
+    elif name == "get_settings_manager":
+        from config.settings_manager import get_settings_manager
+        return get_settings_manager
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "ScreenshotManager",

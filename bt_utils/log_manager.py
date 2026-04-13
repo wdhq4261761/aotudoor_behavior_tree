@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 import threading
+from bt_utils.singleton import singleton
 
 
 class LogLevel(Enum):
@@ -35,21 +36,14 @@ class LogEntry:
             return f"[{time_str}] ℹ️ {self.node_type} \"{self.node_name}\" - {self.message}"
 
 
+@singleton
 class LogManager:
-    _instance = None
-    _lock = threading.Lock()
+    """日志管理器
     
-    def __new__(cls):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super().__new__(cls)
-                cls._instance._initialized = False
-            return cls._instance
+    使用单例模式，线程安全。
+    """
     
     def __init__(self):
-        if self._initialized:
-            return
-        self._initialized = True
         self._buffer: List[LogEntry] = []
         self._buffer_lock = threading.Lock()
     
