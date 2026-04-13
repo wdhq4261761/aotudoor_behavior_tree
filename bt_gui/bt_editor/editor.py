@@ -17,7 +17,7 @@ from .log_panel import LogPanel
 from .undo_redo import (
     CommandManager, AddNodeCommand, AddNodesCommand, RemoveNodeCommand,
     RemoveNodesCommand, MoveNodeCommand, MoveNodesCommand, AddConnectionCommand,
-    ClearCanvasCommand
+    RemoveConnectionCommand, ClearCanvasCommand
 )
 from bt_core.engine import BehaviorTreeEngine
 from bt_core.context import ExecutionContext
@@ -87,6 +87,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self.app,
             on_save=self.save_tree,
             on_export=self.export_tree,
+            on_import=self.import_tree,
             on_new_project=self._on_new_project_dialog,
             on_open_project=self._on_open_project_dialog,
             on_undo=self.undo,
@@ -361,7 +362,15 @@ class BehaviorTreeEditor(ctk.CTkFrame):
                 return
             self._delete_node(self.canvas.selected_node)
         elif self.canvas.selected_connection:
-            self.canvas.remove_selected_connection()
+            parent_id, child_id = self.canvas.selected_connection
+            command = RemoveConnectionCommand(
+                canvas=self.canvas,
+                parent_id=parent_id,
+                child_id=child_id
+            )
+            self.command_manager.execute(command)
+            self.canvas.selected_connection = None
+            self._update_toolbar()
             self._set_modified(True)
     
     def _delete_node(self, node_id: str):
@@ -974,6 +983,97 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             
         except Exception as e:
             messagebox.showerror("错误", f"导出失败: {str(e)}")
+    
+    def import_tree(self):
+        """从 ZIP 文件导入项目"""
+        from tkinter import filedialog, messagebox
+        from bt_utils.package_importer import PackageImporter
+        from config.settings_manager import SettingsManager
+        
+        settings = SettingsManager.get_instance()
+        
+        last_export_path = settings.get_last_export_path()
+        initial_dir = None
+        if last_export_path and os.path.exists(os.path.dirname(last_export_path)):
+            initial_dir = os.path.dirname(last_export_path)
+        
+        zip_path = filedialog.askopenfilename(
+            title="选择项目压缩包",
+            initialdir=initial_dir,
+            filetypes=[("ZIP文件", "*.zip"), ("所有文件", "*.*")]
+        )
+        
+        if not zip_path:
+            return
+        
+        importer = PackageImporter()
+        
+        is_valid, error_msg = importer.validate_package(zip_path)
+        if not is_valid:
+            messagebox.showerror("错误", f"无效的项目压缩包:\n{error_msg}")
+            return
+        
+        project_name = importer.get_project_name(zip_path)
+        if not project_name:
+            project_name = os.path.splitext(os.path.basename(zip_path))[0]
+        
+        workspace_path = SettingsManager.get_default_workspace_path()
+        
+        try:
+            os.makedirs(workspace_path, exist_ok=True)
+        except Exception as e:
+            messagebox.showerror("错误", f"无法创建工作区目录:\n{str(e)}")
+            return
+        
+        target_project_path = os.path.join(workspace_path, project_name)
+        
+        if os.path.exists(target_project_path):
+            result = messagebox.askyesnocancel(
+                "项目已存在",
+                f"工作区中已存在同名项目 '{project_name}'。\n\n"
+                f"是否覆盖现有项目？\n"
+                f"• 选择「是」将删除现有项目并导入新项目\n"
+                f"• 选择「否」将自动重命名新项目\n"
+                f"• 选择「取消」将终止导入"
+            )
+            
+            if result is None:
+                return
+            elif result:
+                success, error_msg, imported_path = importer.import_from_zip(
+                    zip_path, 
+                    workspace_path, 
+                    overwrite=True
+                )
+            else:
+                new_name = importer.generate_new_name(project_name, workspace_path)
+                success, error_msg, imported_path = importer.import_from_zip(
+                    zip_path, 
+                    workspace_path, 
+                    overwrite=False,
+                    new_name=new_name
+                )
+        else:
+            success, error_msg, imported_path = importer.import_from_zip(
+                zip_path, 
+                workspace_path, 
+                overwrite=False
+            )
+        
+        if not success:
+            messagebox.showerror("错误", f"导入项目失败:\n{error_msg}")
+            return
+        
+        try:
+            self.open_project(imported_path)
+            
+            settings.set_last_export_path(zip_path)
+            
+            imported_name = os.path.basename(imported_path)
+            messagebox.showinfo("成功", f"项目 '{imported_name}' 导入成功！\n\n项目位置:\n{imported_path}")
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"打开导入的项目失败:\n{str(e)}")
     
     def _convert_to_project(self):
         """将当前脚本转换为项目文件夹"""

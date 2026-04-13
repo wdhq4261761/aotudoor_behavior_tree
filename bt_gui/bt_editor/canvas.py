@@ -6,6 +6,7 @@ import math
 from ..theme import Theme
 from .constants import NODE_CATEGORY_MAP, NODE_DISPLAY_NAMES
 from .node_item import NodeItem, NodeExecutionStatus
+from bt_utils.log_manager import LogManager
 
 
 class BehaviorTreeCanvas(ctk.CTkFrame):
@@ -161,6 +162,8 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
     def _on_click(self, event):
         if self.property_panel:
             self.property_panel.force_save_current_field()
+        
+        self.canvas.focus_set()
         
         x = (self.canvas.canvasx(event.x) - self.pan_x) / self.zoom
         y = (self.canvas.canvasy(event.y) - self.pan_y) / self.zoom
@@ -579,11 +582,53 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
             node = self.nodes[node_id]
             node.redraw()
     
-    def add_connection(self, parent_id: str, child_id: str):
-        if parent_id in self.nodes and child_id in self.nodes:
-            if not any(c[0] == parent_id and c[1] == child_id for c in self.connections):
-                self.connections.append((parent_id, child_id))
-                self._redraw_connections()
+    def add_connection(self, parent_id: str, child_id: str) -> bool:
+        if parent_id not in self.nodes or child_id not in self.nodes:
+            return False
+        
+        if any(c[0] == parent_id and c[1] == child_id for c in self.connections):
+            return False
+        
+        existing_parents = [c[0] for c in self.connections if c[1] == child_id]
+        if existing_parents:
+            child_node = self.nodes.get(child_id)
+            child_name = child_node.name if child_node else child_id
+            LogManager.instance().log_info(
+                "连接操作",
+                child_name,
+                f"节点已有父节点，不能重复连接"
+            )
+            return False
+        
+        if self._would_create_cycle(parent_id, child_id):
+            LogManager.instance().log_info(
+                "连接操作",
+                "循环检测",
+                "不能形成循环连接"
+            )
+            return False
+        
+        self.connections.append((parent_id, child_id))
+        self._redraw_connections()
+        return True
+    
+    def _would_create_cycle(self, parent_id: str, child_id: str) -> bool:
+        visited = set()
+        stack = [child_id]
+        
+        while stack:
+            current = stack.pop()
+            if current == parent_id:
+                return True
+            if current in visited:
+                continue
+            visited.add(current)
+            
+            for p, c in self.connections:
+                if p == current:
+                    stack.append(c)
+        
+        return False
     
     def _redraw_connections(self):
         self.canvas.delete("connection")

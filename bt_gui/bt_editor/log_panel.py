@@ -86,6 +86,8 @@ class LogPanel(ctk.CTkFrame):
         height = max(self.MIN_HEIGHT, self._current_height)
         self._text_area = ctk.CTkTextbox(self, height=height, wrap="word")
         self._text_area.pack(fill="both", expand=True)
+        self._text_area.configure(state="disabled")
+        self._text_area.bind("<Control-c>", self._on_copy)
     
     def _bind_events(self):
         pass
@@ -129,7 +131,9 @@ class LogPanel(ctk.CTkFrame):
     def _on_clear(self):
         self._log_lines.clear()
         if hasattr(self, '_text_area') and self._text_area:
+            self._text_area.configure(state="normal")
             self._text_area.delete("1.0", "end")
+            self._text_area.configure(state="disabled")
         LogManager.instance().clear()
     
     def _on_toggle(self):
@@ -176,11 +180,23 @@ class LogPanel(ctk.CTkFrame):
         if not hasattr(self, '_text_area') or not self._text_area:
             return
         
+        self._text_area.configure(state="normal")
         self._text_area.delete("1.0", "end")
         self._text_area.insert("1.0", "\n".join(self._log_lines))
+        self._text_area.configure(state="disabled")
         
         if self._auto_scroll_var.get():
             self._text_area.see("end")
+    
+    def _on_copy(self, event):
+        try:
+            selected_text = self._text_area.get("sel.first", "sel.last")
+            if selected_text:
+                self.clipboard_clear()
+                self.clipboard_append(selected_text)
+        except Exception:
+            pass
+        return "break"
     
     def append_log(self, entry: LogEntry):
         LogManager.instance().log(entry)

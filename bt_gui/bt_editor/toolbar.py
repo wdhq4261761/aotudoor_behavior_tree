@@ -12,6 +12,7 @@ class EditorToolbar(ctk.CTkFrame):
         app,
         on_save: Optional[Callable] = None,
         on_export: Optional[Callable] = None,
+        on_import: Optional[Callable] = None,
         on_new_project: Optional[Callable] = None,
         on_open_project: Optional[Callable] = None,
         on_undo: Optional[Callable] = None,
@@ -27,6 +28,7 @@ class EditorToolbar(ctk.CTkFrame):
         self.app = app
         self.on_save = on_save
         self.on_export = on_export
+        self.on_import = on_import
         self.on_new_project = on_new_project
         self.on_open_project = on_open_project
         self.on_undo = on_undo
@@ -113,6 +115,17 @@ class EditorToolbar(ctk.CTkFrame):
             hover_color=self._dark_colors['border'],
             text_color=self._dark_colors['text_primary'],
             command=self._on_export_click,
+            **btn_config
+        ).pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
+        
+        ctk.CTkButton(
+            file_frame,
+            text="导入项目",
+            width=70,
+            fg_color=self._dark_colors['bg_tertiary'],
+            hover_color=self._dark_colors['border'],
+            text_color=self._dark_colors['text_primary'],
+            command=self._on_import_click,
             **btn_config
         ).pack(side="left", padx=Theme.DIMENSIONS['spacing_xs'])
     
@@ -257,6 +270,10 @@ class EditorToolbar(ctk.CTkFrame):
     def _on_export_click(self):
         if self.on_export:
             self.on_export()
+    
+    def _on_import_click(self):
+        if self.on_import:
+            self.on_import()
     
     def _on_undo_click(self):
         if self.on_undo:
