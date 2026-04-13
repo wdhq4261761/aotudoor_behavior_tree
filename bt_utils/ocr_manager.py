@@ -30,24 +30,17 @@ class OCRManager:
             return
         
         if not self._available:
-            print(f"[OCR] OCR功能不可用: {self._unavailable_reason}")
             return
         
-        print(f"[OCR] 开始初始化 OCRManager...")
-        
         try:
-            print(f"[OCR] 尝试创建 RapidOCR 引擎...")
             self._engine = RapidOCR()
-            print(f"[OCR] RapidOCR 引擎创建成功: {self._engine}")
             
             if self._engine is None:
                 raise RuntimeError("RapidOCR 引擎创建失败，返回 None")
             
             self._initialized = True
-            print(f"[OCR] OCRManager 初始化完成")
             
         except Exception as e:
-            print(f"[OCR] RapidOCR 初始化失败: {e}")
             import traceback
             traceback.print_exc()
             self._engine = None
@@ -78,7 +71,6 @@ class OCRManager:
         """
         cls._available = False
         cls._unavailable_reason = reason
-        print(f"[OCR] OCR功能已标记为不可用: {reason}")
 
     @classmethod
     def is_available(cls) -> bool:
@@ -165,16 +157,13 @@ class OCRManager:
 
         Args:
             image: 原始图像
-            language: OCR语言
-            preprocess_mode: 预处理模式
+            language: OCR语言 (已废弃，保留参数兼容)
+            preprocess_mode: 预处理模式 (normal/game)
 
         Returns:
             预处理后的图像
         """
-        if preprocess_mode == "artistic":
-            return self._preprocess_chinese(image)
-        
-        if language in self.CHINESE_LANGS:
+        if preprocess_mode == "game":
             return self._preprocess_chinese(image)
         else:
             return self._preprocess_standard(image)
@@ -197,46 +186,27 @@ class OCRManager:
         """
         try:
             if not self._available:
-                print(f"[OCR] OCR功能不可用: {self._unavailable_reason}")
                 return False, None, ""
             
             if self._engine is None:
-                print(f"[OCR] 错误: RapidOCR 引擎未初始化！")
                 return False, None, ""
             
-            print(f"[OCR] 开始识别 - 语言: {language}, 关键词: {keywords}")
-            print(f"[OCR] 图像尺寸: {image.size}, 模式: {image.mode}")
-            if region:
-                print(f"[OCR] 截图区域: {region}")
-            
             processed = self._preprocess_image(image, language, preprocess_mode)
-            print(f"[OCR] 预处理后图像尺寸: {processed.size}, 模式: {processed.mode}")
             
             img_array = np.array(processed)
-            print(f"[OCR] 转换为数组，形状: {img_array.shape}, 数据类型: {img_array.dtype}")
             
-            print(f"[OCR] 调用 RapidOCR 引擎...")
             result = self._engine(img_array)
             
             if result is None:
-                print(f"[OCR] RapidOCR返回None")
                 return False, None, ""
             
             if result.boxes is None or len(result.boxes) == 0:
-                print(f"[OCR] 未检测到文本框")
                 return False, None, ""
             
-            print(f"[OCR] 检测到 {len(result.boxes)} 个文本框")
-            
             all_text = " ".join(result.txts) if result.txts else ""
-            print(f"[OCR] 识别文本: {all_text}")
-            
-            for i, (text, score) in enumerate(zip(result.txts, result.scores)):
-                print(f"[OCR] 文本{i+1}: '{text}' (置信度: {score:.2f})")
             
             if keywords:
                 keyword_list = [k.strip().lower() for k in keywords.split(",")]
-                print(f"[OCR] 搜索关键词列表: {keyword_list}")
                 
                 for i, text in enumerate(result.txts):
                     if not text:
@@ -275,25 +245,14 @@ class OCRManager:
                             if region:
                                 x += region[0]
                                 y += region[1]
-                                print(f"[OCR] 转换为绝对坐标: ({x}, {y})")
-                            
-                            print(f"[OCR] 找到关键词 '{keyword}' 在文本 '{text}' 中")
-                            print(f"  关键词位置: 文本框左={box_left}, 右={box_right}, 上={box_top}, 下={box_bottom}")
-                            print(f"  关键词相对位置: {start_ratio:.2%} - {end_ratio:.2%}, 中心: {center_ratio:.2%}")
-                            print(f"  计算位置: ({x}, {y})")
                             
                             return True, (x, y), all_text
                 
-                print(f"[OCR] 未找到任何关键词")
                 return False, None, all_text
             
-            print(f"[OCR] 无关键词搜索，返回成功")
             return True, None, all_text
         
-        except Exception as e:
-            print(f"[OCR] 识别错误: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
             return False, None, ""
 
     def recognize_single_psm(self, image: Image.Image, keywords: str = None,
@@ -337,7 +296,7 @@ class OCRManager:
         """
         result = self.recognize_number_with_position(image, language, preprocess_mode, extract_mode, extract_pattern, min_confidence)
         return result[0], result[1], result[2]
-
+    
     def recognize_number_with_position(self, image: Image.Image, language: str = "eng",
                                         preprocess_mode: str = "normal",
                                         extract_mode: str = "无规则",
@@ -358,36 +317,23 @@ class OCRManager:
         """
         try:
             if not self._available:
-                print(f"[OCR] OCR功能不可用: {self._unavailable_reason}")
                 return False, None, "", None
             
             if self._engine is None:
-                print(f"[OCR] 错误: RapidOCR 引擎未初始化！")
                 return False, None, "", None
             
-            print(f"[OCR] 开始数字识别 - 语言: {language}, 提取模式: {extract_mode}")
-            print(f"[OCR] 图像尺寸: {image.size}, 模式: {image.mode}")
-            
             processed = self._preprocess_image(image, language, preprocess_mode)
-            print(f"[OCR] 预处理后图像尺寸: {processed.size}, 模式: {processed.mode}")
             
             img_array = np.array(processed)
-            print(f"[OCR] 转换为数组，形状: {img_array.shape}")
             
             result = self._engine(img_array)
             
             if result is None or result.txts is None or len(result.txts) == 0:
-                print(f"[OCR] 未检测到文本")
                 return False, None, "", None
             
             all_text = " ".join(result.txts)
-            print(f"[OCR] 识别文本: {all_text}")
-            
-            for i, (text, score) in enumerate(zip(result.txts, result.scores)):
-                print(f"[OCR] 文本{i+1}: '{text}' (置信度: {score:.2f})")
             
             extracted = self._extract_number(all_text, extract_mode, extract_pattern)
-            print(f"[OCR] 提取数字结果: {extracted}")
             
             if extracted is not None:
                 position = None
@@ -404,16 +350,11 @@ class OCRManager:
                     
                     position = (center_x, center_y)
                 
-                print(f"[OCR] 成功提取数字: {extracted}, 位置: {position}")
                 return True, extracted, all_text, position
             
-            print(f"[OCR] 未能提取数字")
             return False, None, all_text, None
         
-        except Exception as e:
-            print(f"[OCR] 数字识别错误: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
             return False, None, "", None
 
     def _extract_number(self, text: str, extract_mode: str,
@@ -482,11 +423,9 @@ class OCRManager:
         """
         try:
             if not self._available:
-                print(f"[OCR] OCR功能不可用: {self._unavailable_reason}")
                 return ""
             
             if self._engine is None:
-                print(f"[OCR] 错误: RapidOCR 引擎未初始化！")
                 return ""
             
             processed = self._preprocess_image(image, language, preprocess_mode)
@@ -500,6 +439,5 @@ class OCRManager:
             
             return "\n".join(result.txts)
         
-        except Exception as e:
-            print(f"[WARN] OCR文本识别错误: {e}")
+        except Exception:
             return ""

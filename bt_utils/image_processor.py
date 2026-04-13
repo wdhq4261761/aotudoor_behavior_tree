@@ -12,7 +12,7 @@ class ImageProcessor:
 
     @staticmethod
     def find_template(source: Image.Image, template: Image.Image,
-                      threshold: float = 0.8) -> Tuple[bool, Optional[Tuple[int, int]]]:
+                      threshold: float = 0.8) -> Tuple[bool, Optional[Tuple[int, int]], float]:
         """模板匹配
 
         Args:
@@ -21,7 +21,7 @@ class ImageProcessor:
             threshold: 匹配阈值
 
         Returns:
-            (是否找到, 中心位置) 元组
+            (是否找到, 中心位置, 最高置信度) 元组
         """
         source_array = np.array(source)
         template_array = np.array(template)
@@ -41,9 +41,9 @@ class ImageProcessor:
             h, w = template_gray.shape
             center_x = max_loc[0] + w // 2
             center_y = max_loc[1] + h // 2
-            return True, (center_x, center_y)
+            return True, (center_x, center_y), max_val
 
-        return False, None
+        return False, None, max_val
 
     @staticmethod
     def find_color(source: Image.Image, target_color: Tuple[int, int, int],

@@ -97,7 +97,7 @@ class AlarmPlayer:
         return None
 
     def stop(self) -> None:
-        """停止播放"""
+        """停止播放（只停止Sound通道，不影响music通道）"""
         if self._pygame_initialized:
             try:
                 import pygame

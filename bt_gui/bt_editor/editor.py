@@ -811,7 +811,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
                 if path_mapping:
                     tree_data = ResourceService.update_tree_paths(tree_data, path_mapping)
                     self.canvas.load_tree(tree_data)
-                    print(f"[INFO] 已导入 {len(external_resources)} 个外部资源到项目目录")
             
             self.project_manager.save_project(tree_data)
             
@@ -928,7 +927,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             if path_mapping:
                 tree_data = ResourceService.update_tree_paths(tree_data, path_mapping)
                 self.canvas.load_tree(tree_data)
-                print(f"[INFO] 已导入 {len(external_resources)} 个外部资源到项目目录")
         
         if self.project_manager:
             self.project_manager.save_project(tree_data)
@@ -1060,15 +1058,10 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             messagebox.showerror("错误", f"无法打开文件夹: {str(e)}")
     
     def _start_running(self):
-        print(f"[DEBUG] _start_running 被调用，当前运行状态: {self._is_running}")
-        print(f"[DEBUG] GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
-        
         if self._is_running:
-            print("[DEBUG] 已经在运行中，跳过启动")
             return
         
         if self.engine and self.engine._running:
-            print("[DEBUG] 引擎已在运行，跳过启动")
             return
         
         if self.property_panel:
@@ -1076,7 +1069,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
 
         tree_data = self.canvas.get_tree_data()
         result = Serializer.deserialize(tree_data)
-        
         if isinstance(result, tuple):
             root_node = result[0]
         else:
@@ -1103,14 +1095,9 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.toolbar.set_running(True)
         
         self._start_ui_polling()
-        print(f"[DEBUG] 行为树已启动，GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
 
     def _stop_running(self):
-        print(f"[DEBUG] _stop_running 被调用，当前运行状态: {self._is_running}")
-        print(f"[DEBUG] GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
-        
         if not self._is_running:
-            print("[DEBUG] 未在运行中，跳过停止")
             return
         
         self._stop_requested = True
@@ -1118,11 +1105,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     
     def _stop_running_in_main_thread(self):
         """在主线程中执行停止操作"""
-        print(f"[DEBUG] _stop_running_in_main_thread 被调用")
-        print(f"[DEBUG] GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
-        
         if not self._is_running:
-            print("[DEBUG] 未在运行中，跳过停止")
             return
         
         self._stop_ui_polling()
@@ -1140,8 +1123,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self.canvas.after(100, self._clear_status_after_stop)
         self.toolbar.set_running(False)
         self._is_running = False
-        
-        print(f"[DEBUG] 行为树已停止，GlobalHotkeyManager 状态: {self._hotkey_manager.get_status()}")
     
     def _stop_ui_polling(self):
         """停止UI轮询"""
@@ -1167,20 +1148,15 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         try:
             from bt_utils.alarm import AlarmPlayer
             player = AlarmPlayer()
-            player.play(volume=70, wait_complete=False)
+            player.play_start_sound()
         except Exception:
             pass
 
     def _play_stop_sound(self):
         try:
-            from bt_utils.resource_manager import get_resource_manager
-            rm = get_resource_manager()
-            reversed_path = rm.get_stop_sound_path()
-            
-            if reversed_path:
-                from bt_utils.alarm import AlarmPlayer
-                player = AlarmPlayer()
-                player.play(sound_path=reversed_path, volume=70, wait_complete=False)
+            from bt_utils.alarm import AlarmPlayer
+            player = AlarmPlayer()
+            player.play_stop_sound()
         except Exception:
             pass
 
@@ -1437,7 +1413,11 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     
     def _update_title(self, project_name: str):
         """更新窗口标题"""
-        self.winfo_toplevel().title(f"AutoDoor 行为树编辑器 - {project_name}")
+        try:
+            from main import VERSION
+            self.winfo_toplevel().title(f"autodoor - 行为树 {VERSION} - {project_name}")
+        except ImportError:
+            self.winfo_toplevel().title(f"autodoor - 行为树 - {project_name}")
     
     def destroy(self):
         if self._autosave_manager:

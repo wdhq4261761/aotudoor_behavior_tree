@@ -14,6 +14,7 @@ NODE_CONFIG_SCHEMAS = {
         {"key": "region", "label": "检测区域", "type": "region"},
         {"key": "keywords", "label": "关键词", "type": "text"},
         {"key": "language", "label": "语言", "type": "select", "options": ["eng", "chi_sim", "chi_tra"], "default": "chi_sim"},
+        {"key": "preprocess_mode", "label": "图像预处理", "type": "select", "options": ["默认", "游戏"], "default": "默认"},
         {"key": "position_key", "label": "位置变量名", "type": "text", "default": "last_detection_position"},
     ],
     "ImageConditionNode": [

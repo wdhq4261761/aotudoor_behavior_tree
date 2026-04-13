@@ -3,7 +3,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-VERSION = "v1.1.3"
+VERSION = "V1.1.4"
 
 import customtkinter as ctk
 from bt_gui.app import BehaviorTreeApp
@@ -24,8 +24,8 @@ def ensure_workspace_exists():
     
     try:
         os.makedirs(workspace_dir, exist_ok=True)
-    except Exception as e:
-        print(f"[WARN] 无法创建workspace文件夹: {e}")
+    except Exception:
+        pass
 
 
 def check_vcredist():
@@ -66,17 +66,13 @@ def initialize_ocr():
             from bt_utils.ocr_manager import OCRManager
             OCRManager.set_unavailable("缺少 Visual C++ Redistributable 运行时库")
             
-            print("[WARN] OCR功能不可用：缺少 Visual C++ Redistributable 运行时库")
             return False
         
         from bt_utils.ocr_manager import OCRManager
         OCRManager.initialize()
-        print("[INFO] OCR引擎初始化成功")
         return True
         
     except Exception as e:
-        print(f"[WARN] OCR引擎初始化失败: {e}")
-        
         from bt_utils.ocr_manager import OCRManager
         OCRManager.set_unavailable(str(e))
         

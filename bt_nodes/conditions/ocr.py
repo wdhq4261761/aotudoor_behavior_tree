@@ -15,6 +15,8 @@ class OCRConditionNode(ConditionNode):
         self.region: Optional[Tuple[int, int, int, int]] = self._parse_region(self.config.get("region", None))
         self.keywords = self.config.get("keywords", "")
         self.language = self.config.get("language", "eng")
+        preprocess_display = self.config.get("preprocess_mode", "默认")
+        self.preprocess_mode = "game" if preprocess_display == "游戏" else "normal"
 
         self.position_key = self.config.get("position_key", "last_detection_position")
 
@@ -23,7 +25,8 @@ class OCRConditionNode(ConditionNode):
             screenshot = context.get_screenshot(self.region)
 
             found, position, all_text = OCRManager.instance().recognize(
-                screenshot, self.keywords, self.language, region=self.region
+                screenshot, self.keywords, self.language, 
+                preprocess_mode=self.preprocess_mode, region=self.region
             )
 
             if found:
@@ -56,6 +59,7 @@ class OCRConditionNode(ConditionNode):
         data["config"]["region"] = list(self.region) if self.region else None
         data["config"]["keywords"] = self.keywords
         data["config"]["language"] = self.language
+        data["config"]["preprocess_mode"] = "游戏" if self.preprocess_mode == "game" else "默认"
         data["config"]["position_key"] = self.position_key
         return data
 

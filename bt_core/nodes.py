@@ -318,7 +318,38 @@ class SelectorNode(CompositeNode):
         self._last_child_time = 0
 
     def tick(self, context: "ExecutionContext") -> NodeStatus:
-        return self._execute_with_decorators(context, self._tick_internal)
+        if not self.config.enabled:
+            return NodeStatus.SUCCESS
+
+        if self.status != NodeStatus.RUNNING:
+            context.notify_node_status(self.node_id, "running")
+
+        if self._start_time is None:
+            self._start_time = context.elapsed_time
+
+        timeout_ms = self.config.timeout_ms
+        if timeout_ms > 0:
+            elapsed_ms = (context.elapsed_time - self._start_time) * 1000
+            if elapsed_ms >= timeout_ms:
+                self.status = NodeStatus.FAILURE
+                context.notify_node_status(self.node_id, "failure")
+                return NodeStatus.FAILURE
+
+        status = self._tick_internal(context)
+        self.status = status
+
+        if status == NodeStatus.FAILURE:
+            retry_count = self.config.retry_count
+            if retry_count != 0:
+                if retry_count == -1 or self._retry_count < retry_count:
+                    self._retry_count += 1
+                    self._reset_for_retry()
+                    return NodeStatus.RUNNING
+            context.notify_node_status(self.node_id, "failure")
+        elif status == NodeStatus.SUCCESS:
+            context.notify_node_status(self.node_id, "success")
+
+        return status
 
     def _tick_internal(self, context: "ExecutionContext") -> NodeStatus:
         from bt_utils.log_manager import LogManager

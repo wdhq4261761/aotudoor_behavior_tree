@@ -14,7 +14,12 @@ class ImageConditionNode(ConditionNode):
         self.template_path = self.config.get("template_path", "")
         raw_region = self.config.get("region", None)
         self.region: Optional[Tuple[int, int, int, int]] = self._parse_region(raw_region)
-        self.threshold = self.config.get_float("threshold", 0.8)
+        
+        threshold_value = self.config.get_float("threshold", 0.8)
+        if threshold_value > 1.0:
+            self.threshold = threshold_value / 100.0
+        else:
+            self.threshold = threshold_value
 
         self._template_image = None
 
@@ -53,7 +58,7 @@ class ImageConditionNode(ConditionNode):
                 self._last_template_mtime = os.path.getmtime(absolute_template_path)
             screenshot = context.get_screenshot(self.region)
             from bt_utils.image_processor import ImageProcessor
-            found, position = ImageProcessor.find_template(
+            found, position, confidence = ImageProcessor.find_template(
                 screenshot, self._template_image, self.threshold
             )
             if found and position:
@@ -69,7 +74,7 @@ class ImageConditionNode(ConditionNode):
                 LogManager.instance().log_failure(
                     node_type="图像检测节点",
                     node_name=self.name,
-                    reason="未找到匹配的图像"
+                    reason=f"未找到匹配的图像，最高置信度: {confidence:.2%}，阈值: {self.threshold:.2%}"
                 )
                 return False
         except Exception as e:

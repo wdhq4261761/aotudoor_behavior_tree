@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import Callable, Dict, Optional, Set
+from typing import Callable, Dict, Optional
 from pynput import keyboard
 
 
@@ -26,7 +26,6 @@ class GlobalHotkeyManager:
         self._initialized = True
         self._listener: Optional[keyboard.Listener] = None
         self._hotkeys: Dict[str, Callable] = {}
-        self._pressed_keys: Set[keyboard.Key] = set()
         self._lock = threading.Lock()
         self._running = False
         self._last_trigger_time: Dict[str, float] = {}
@@ -68,7 +67,6 @@ class GlobalHotkeyManager:
             if self._listener:
                 self._listener.stop()
                 self._listener = None
-            self._pressed_keys.clear()
             self._last_trigger_time.clear()
     
     def register(self, key_name: str, callback: Callable):
@@ -153,19 +151,13 @@ class GlobalHotkeyManager:
             
             key_name = self._get_key_name(key)
             if key_name:
-                self._pressed_keys.add(key_name)
-                self._check_hotkeys()
+                self._check_hotkey(key_name)
         except Exception:
             pass
     
     def _on_release(self, key):
         """按键释放事件处理"""
-        try:
-            key_name = self._get_key_name(key)
-            if key_name and key_name in self._pressed_keys:
-                self._pressed_keys.discard(key_name)
-        except Exception:
-            pass
+        pass
     
     def _get_key_name(self, key) -> str:
         """获取按键名称
@@ -193,42 +185,29 @@ class GlobalHotkeyManager:
             return name
         return str(key).lower()
     
-    def _check_hotkeys(self):
-        """检查是否触发了注册的热键"""
-        current_combo = self._get_current_combo()
+    def _check_hotkey(self, key_name: str):
+        """检查是否触发了注册的热键
         
+        Args:
+            key_name: 按键名称
+        """
         callback = None
-        triggered_keys = []
         with self._lock:
-            if current_combo in self._hotkeys:
+            if key_name in self._hotkeys:
                 current_time = time.time()
-                last_time = self._last_trigger_time.get(current_combo, 0)
+                last_time = self._last_trigger_time.get(key_name, 0)
                 
                 if current_time - last_time < self._debounce_interval:
                     return
                 
-                self._last_trigger_time[current_combo] = current_time
-                callback = self._hotkeys[current_combo]
-                triggered_keys = list(self._pressed_keys)
+                self._last_trigger_time[key_name] = current_time
+                callback = self._hotkeys[key_name]
         
         if callback:
             try:
                 callback()
-            except Exception as e:
-                print(f"[WARN] 热键回调执行失败: {e}")
-            
-            with self._lock:
-                for key in triggered_keys:
-                    if key in self._pressed_keys:
-                        self._pressed_keys.discard(key)
-    
-    def _get_current_combo(self) -> str:
-        """获取当前按下的组合键
-        
-        Returns:
-            组合键字符串
-        """
-        return "+".join(sorted(self._pressed_keys))
+            except Exception:
+                pass
     
     def is_running(self) -> bool:
         """检查监听器是否在运行
@@ -249,8 +228,7 @@ class GlobalHotkeyManager:
             return {
                 "running": self._running,
                 "listener_alive": self._listener.is_alive() if self._listener else False,
-                "registered_hotkeys": list(self._hotkeys.keys()),
-                "pressed_keys": list(self._pressed_keys)
+                "registered_hotkeys": list(self._hotkeys.keys())
             }
 
 

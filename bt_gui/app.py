@@ -10,6 +10,15 @@ from .settings_tab import SettingsTab
 from config.settings_manager import SettingsManager
 
 
+def _get_app_title() -> str:
+    """获取应用标题，包含版本号"""
+    try:
+        from main import VERSION
+        return f"autodoor - 行为树 {VERSION}"
+    except ImportError:
+        return "autodoor - 行为树"
+
+
 class BehaviorTreeApp(ctk.CTk):
     
     def __init__(self):
@@ -21,7 +30,7 @@ class BehaviorTreeApp(ctk.CTk):
         
         self._settings = SettingsManager.get_instance()
         
-        self.title("行为树编辑器")
+        self.title(_get_app_title())
         self.geometry("1280x800")
         self.minsize(800, 600)
         
@@ -43,9 +52,24 @@ class BehaviorTreeApp(ctk.CTk):
             try:
                 if hasattr(self, 'behavior_tree') and self.behavior_tree:
                     self.behavior_tree.load_tree(last_file)
-                    print(f"[OK] 已自动加载上次文件: {last_file}")
-            except Exception as e:
-                print(f"[WARN] 自动加载上次文件失败: {e}")
+                    self._update_window_title()
+            except Exception:
+                pass
+    
+    def _update_window_title(self):
+        """更新窗口标题，显示项目名称"""
+        project_name = None
+        if hasattr(self.behavior_tree, 'project_root') and self.behavior_tree.project_root:
+            project_name = os.path.basename(self.behavior_tree.project_root)
+        
+        if project_name:
+            try:
+                from main import VERSION
+                self.title(f"autodoor - 行为树 {VERSION} - {project_name}")
+            except ImportError:
+                self.title(f"autodoor - 行为树 - {project_name}")
+        else:
+            self.title(_get_app_title())
     
     def _set_icon(self):
         """设置应用图标"""
