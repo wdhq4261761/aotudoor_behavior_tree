@@ -98,13 +98,7 @@ class UIUpdateDispatcher:
         self._schedule_process()
     
     def _schedule_process(self):
-        if self._widget is None:
-            return
-        
-        try:
-            self._widget.after(0, self._process_updates_safe)
-        except Exception:
-            pass
+        pass
     
     def _process_updates_safe(self):
         try:

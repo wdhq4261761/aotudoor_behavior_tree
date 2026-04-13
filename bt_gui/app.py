@@ -30,7 +30,9 @@ class BehaviorTreeApp(ctk.CTk):
         self._settings = SettingsManager.get_instance()
         
         self.title(_get_app_title())
-        self.geometry("1280x800")
+        
+        saved_geometry = self._settings.get("session.window_geometry", "1280x800")
+        self.geometry(saved_geometry)
         self.minsize(800, 600)
         
         self.configure(fg_color=self._dark_colors['bg_primary'])
@@ -211,6 +213,9 @@ class BehaviorTreeApp(ctk.CTk):
                 self.behavior_tree._duplicate_selected()
     
     def _on_close(self):
+        current_geometry = self.geometry()
+        self._settings.set("session.window_geometry", current_geometry)
+        
         if hasattr(self, 'behavior_tree') and self.behavior_tree:
             file_path = self.behavior_tree.file_path
             if file_path:

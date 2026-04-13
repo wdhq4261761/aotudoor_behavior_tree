@@ -1206,8 +1206,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         if not self._is_running:
             return
         
-        self._stop_ui_polling()
-        
         self._play_stop_sound()
         
         if self.engine:
@@ -1223,9 +1221,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         self._is_running = False
     
     def _stop_ui_polling(self):
-        """停止UI轮询"""
-        if hasattr(self, '_dispatcher') and self._dispatcher:
-            self._dispatcher.stop_polling()
+        """停止UI轮询（已废弃，轮询持续运行）"""
+        pass
     
     def _clear_status_after_stop(self):
         """延迟清除状态，确保引擎完全停止"""
@@ -1236,11 +1233,11 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         from bt_utils.ui_dispatcher import UIUpdateDispatcher
         self._dispatcher = UIUpdateDispatcher.get_instance()
         self._dispatcher.attach(self)
+        self._dispatcher.start_polling()
     
     def _start_ui_polling(self):
         """启动UI轮询，确保后台线程的更新能及时处理"""
-        if hasattr(self, '_dispatcher') and self._dispatcher:
-            self._dispatcher.start_polling()
+        pass
 
     def _play_start_sound(self):
         try:
