@@ -214,7 +214,6 @@ class SettingsManager:
         config_version = self.settings.get("version", "0.0.0")
         
         if config_version != self.VERSION:
-            print(f"[INFO] 配置版本迁移: {config_version} -> {self.VERSION}")
             self.settings["version"] = self.VERSION
             self.settings["last_save_time"] = datetime.datetime.now().isoformat()
             self.save_settings()

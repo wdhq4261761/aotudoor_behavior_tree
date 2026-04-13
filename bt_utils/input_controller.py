@@ -40,7 +40,6 @@ class InputController:
         
         使用 pynput 的 Controller 来释放所有按键，无需跟踪按键状态。
         """
-        print(f"[DEBUG] InputController.release_all() 被调用")
         
         cls._set_simulating(True)
         try:
@@ -78,7 +77,6 @@ class InputController:
             mouse_controller.release(mouse.Button.right)
             mouse_controller.release(mouse.Button.middle)
             
-            print(f"[DEBUG] 所有按键和鼠标按钮已释放")
         except Exception as e:
             print(f"[WARN] 释放按键时出错: {e}")
         finally:

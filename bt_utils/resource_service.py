@@ -239,7 +239,6 @@ class ResourceService:
                         try:
                             os.remove(abs_file_path)
                             removed_files.append(abs_file_path)
-                            print(f"[INFO] 清理未引用文件: {abs_file_path}")
                         except Exception as e:
                             print(f"[WARN] 无法删除文件 {abs_file_path}: {e}")
         
@@ -299,7 +298,6 @@ class ResourceService:
         
         try:
             shutil.move(abs_file_path, cache_path)
-            print(f"[INFO] 已将旧文件移动到缓存: {file_path} -> {cls.CACHE_DIR}/{cached_filename}")
             return cache_path
         except Exception as e:
             print(f"[WARN] 移动文件到缓存失败: {e}")
