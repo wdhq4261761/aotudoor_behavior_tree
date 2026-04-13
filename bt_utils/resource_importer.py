@@ -1,6 +1,5 @@
 import os
 import shutil
-from typing import Optional
 from bt_utils.path_resolver import PathResolver
 
 class ResourceImporter:

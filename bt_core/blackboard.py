@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Callable, Optional
+from typing import Any, Dict, List, Callable
 import threading
 
 

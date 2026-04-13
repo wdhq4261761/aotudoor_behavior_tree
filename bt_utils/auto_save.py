@@ -112,7 +112,7 @@ class AutoSaveManager:
                 
                 return True
                 
-            except Exception as e:
+            except Exception:
                 if self._on_save_callback:
                     self._on_save_callback(False)
                 return False

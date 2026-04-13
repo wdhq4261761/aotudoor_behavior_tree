@@ -717,7 +717,6 @@ class ScreenshotField(FieldWidget):
     
     def _take_screenshot(self):
         import os
-        import time
         from tkinter import messagebox
         
         try:
@@ -879,7 +878,6 @@ class ScreenshotField(FieldWidget):
             messagebox.showerror("错误", f"保存截图失败: {str(e)}")
     
     def _get_project_root(self):
-        import os
         if self.app and hasattr(self.app, 'behavior_tree'):
             editor = self.app.behavior_tree
             if hasattr(editor, 'project_root') and editor.project_root:

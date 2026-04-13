@@ -1,6 +1,5 @@
 import tkinter as tk
 import tkinter.font as tkFont
-from typing import Dict, Optional
 from enum import Enum
 import math
 

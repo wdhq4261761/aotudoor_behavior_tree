@@ -1,10 +1,9 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog, messagebox
-import os
 
 from .theme import Theme
-from .widgets import CardFrame, AnimatedButton, create_divider, create_section_title
+from .widgets import CardFrame, AnimatedButton
 
 
 def create_settings_dialog(app) -> None:
@@ -219,8 +218,6 @@ def _create_ui_section(parent, app, dialog) -> None:
     app._settings_theme = tk.StringVar(
         value=app.settings_manager.get("ui.theme", "dark")
     )
-    theme_map = {"dark": "深色", "light": "浅色", "system": "系统"}
-    theme_reverse = {"深色": "dark", "浅色": "light", "系统": "system"}
     ctk.CTkComboBox(row1, variable=app._settings_theme,
                      values=["深色", "浅色", "系统"], width=100,
                      height=Theme.SIZES['input_height']).pack(side='left', padx=4)

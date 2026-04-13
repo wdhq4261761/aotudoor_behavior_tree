@@ -2,7 +2,6 @@ import os
 import subprocess
 import sys
 import threading
-import time
 import queue
 from bt_core.nodes import ActionNode, NodeStatus
 from bt_core.config import NodeConfig

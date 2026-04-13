@@ -3,7 +3,6 @@ from queue import Queue, Empty
 from typing import Callable, Any, Optional, Dict
 from dataclasses import dataclass
 from enum import Enum
-import time
 
 
 class UpdateType(Enum):

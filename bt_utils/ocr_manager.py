@@ -1,6 +1,6 @@
 from rapidocr import RapidOCR
 from PIL import Image, ImageEnhance, ImageFilter
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional
 import numpy as np
 import re
 

@@ -1,6 +1,5 @@
 import os
 import sys
-from typing import Optional
 
 
 def get_app_root() -> str:

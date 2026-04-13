@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import filedialog, messagebox, StringVar, END
+from tkinter import StringVar
 from typing import Optional, Callable
 
 from ..theme import Theme

@@ -1,6 +1,6 @@
 from bt_core.nodes import ActionNode, NodeStatus
 from bt_core.config import NodeConfig
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from bt_utils.log_manager import LogManager
 
 

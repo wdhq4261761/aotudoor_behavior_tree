@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Any, Callable
 import math
 
 from ..theme import Theme
-from .constants import NODE_CATEGORY_MAP, NODE_DISPLAY_NAMES
+from .constants import NODE_DISPLAY_NAMES
 from .node_item import NodeItem, NodeExecutionStatus
 
 
@@ -429,9 +429,6 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
             self._show_context_menu(event)
     
     def _show_context_menu(self, event):
-        x = (self.canvas.canvasx(event.x) - self.pan_x) / self.zoom
-        y = (self.canvas.canvasy(event.y) - self.pan_y) / self.zoom
-        
         menu = tk.Menu(self, tearoff=0, bg=self._dark_colors['bg_secondary'], 
                        fg=self._dark_colors['text_primary'],
                        activebackground=self._dark_colors['bg_tertiary'])
@@ -634,7 +631,7 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                 self.connection_items[(parent_id, child_id)] = line_id
                 
                 if order_num > 1 or len([c for c in self.connections if c[0] == parent_id]) > 1:
-                    order_text = self.canvas.create_text(
+                    self.canvas.create_text(
                         end_x + 15,
                         end_y - 15,
                         text=str(order_num),
@@ -872,7 +869,6 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         positions = {}
         node_width = 180
         node_height = 80
-        h_gap = 50
         v_gap = 100
         
         def get_children(node_id):
@@ -1036,8 +1032,6 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
     def paste_nodes(self, clipboard_data: Dict[str, Any], offset_x: float = 50, offset_y: float = 50) -> List[str]:
         if not clipboard_data or not clipboard_data.get('nodes'):
             return []
-        
-        import copy
         
         nodes_data = clipboard_data['nodes']
         connections = clipboard_data.get('connections', [])

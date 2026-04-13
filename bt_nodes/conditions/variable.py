@@ -1,7 +1,7 @@
 from bt_core.nodes import ConditionNode
 from bt_core.config import NodeConfig
 from bt_utils.log_manager import LogManager
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 
 class VariableConditionNode(ConditionNode):

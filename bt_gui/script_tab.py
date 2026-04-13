@@ -601,8 +601,8 @@ class ScriptTab(ctk.CTkFrame):
                 while self._is_recording:
                     time.sleep(0.1)
                     
-            except Exception as e:
-                self.after(0, lambda: messagebox.showerror("错误", f"录制启动失败: {str(e)}"))
+            except Exception:
+                self.after(0, lambda: messagebox.showerror("错误", f"录制启动失败"))
             finally:
                 self._stop_listeners()
                 self._generate_recorded_script()

@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from typing import Dict, List, Callable, Optional
+from typing import List, Callable, Optional
 
 from ..theme import Theme
 from .constants import build_node_categories

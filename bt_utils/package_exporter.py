@@ -1,7 +1,6 @@
 import os
 import zipfile
 from datetime import datetime
-from typing import List, Optional
 
 class PackageExporter:
     """项目打包导出器"""

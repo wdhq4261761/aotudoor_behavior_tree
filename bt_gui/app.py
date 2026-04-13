@@ -1,5 +1,4 @@
 import customtkinter as ctk
-from typing import Optional
 import os
 from tkinter import messagebox
 

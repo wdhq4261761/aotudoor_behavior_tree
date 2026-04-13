@@ -2,7 +2,7 @@ import os
 import json
 import shutil
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from bt_utils.path_resolver import PathResolver
 from bt_utils.resource_importer import ResourceImporter
 

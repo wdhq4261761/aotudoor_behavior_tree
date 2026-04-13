@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime
 
 from .nodes import Node
@@ -228,7 +228,6 @@ class Serializer:
 
         root = None
         parent_stack = []
-        last_indent = -1
 
         for line in lines:
             if not line.strip() or line.startswith(';'):
@@ -283,7 +282,5 @@ class Serializer:
             else:
                 root = node
                 parent_stack.append(node)
-
-            last_indent = indent
 
         return root

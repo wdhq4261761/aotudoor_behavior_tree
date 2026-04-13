@@ -1,4 +1,4 @@
-from bt_core.nodes import ConditionNode, NodeStatus
+from bt_core.nodes import ConditionNode
 from bt_core.config import NodeConfig
 from typing import Dict, Any, Tuple, Optional
 from bt_utils.log_manager import LogManager

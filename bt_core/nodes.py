@@ -4,7 +4,6 @@ import uuid
 
 from .status import NodeStatus
 from .config import NodeConfig
-from bt_utils.log_manager import LogManager
 
 if TYPE_CHECKING:
     from .context import ExecutionContext
@@ -596,6 +595,8 @@ class ConditionNode(Node):
         self.status = status
 
         if status == NodeStatus.SUCCESS and self.children:
+            context.notify_node_status(self.node_id, "success")
+            self._children_running = True
             return self._execute_children(context)
 
         return status
@@ -657,18 +658,24 @@ class ActionNode(Node):
     def __init__(self, node_id: str = None, config: NodeConfig = None):
         super().__init__(node_id, config)
         self._child_index = 0
+        self._children_running = False
 
     def tick(self, context: "ExecutionContext") -> NodeStatus:
         return self._execute_with_decorators(context, self._tick_internal)
 
     def _tick_internal(self, context: "ExecutionContext") -> NodeStatus:
-        status = self._execute_action(context)
-        self.status = status
+        if not self._children_running:
+            status = self._execute_action(context)
+            self.status = status
 
-        if status == NodeStatus.SUCCESS and self.children:
+            if status == NodeStatus.SUCCESS and self.children:
+                context.notify_node_status(self.node_id, "success")
+                self._children_running = True
+                return self._execute_children(context)
+
+            return status
+        else:
             return self._execute_children(context)
-
-        return status
 
     @abstractmethod
     def _execute_action(self, context: "ExecutionContext") -> NodeStatus:
@@ -700,16 +707,19 @@ class ActionNode(Node):
             
             if status != NodeStatus.SUCCESS:
                 self._child_index = 0
+                self._children_running = False
                 return status
             
             self._child_index += 1
         
         self._child_index = 0
+        self._children_running = False
         return NodeStatus.SUCCESS
 
     def reset(self, reset_counters: bool = True) -> None:
         super().reset(reset_counters)
         self._child_index = 0
+        self._children_running = False
 
 
 class StartNode(CompositeNode):

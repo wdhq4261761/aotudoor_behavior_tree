@@ -3,7 +3,6 @@ from ctypes import wintypes
 import numpy as np
 from PIL import Image
 from typing import Optional, Tuple
-import os
 
 user32 = ctypes.windll.user32
 gdi32 = ctypes.windll.gdi32

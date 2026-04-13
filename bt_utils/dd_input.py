@@ -3,10 +3,9 @@ DD虚拟键盘输入控制器实现
 DD版专用方案
 """
 import os
-import sys
 import ctypes
 import time
-from typing import Optional, Tuple
+from typing import Optional
 
 from .base_input import BaseInputController
 

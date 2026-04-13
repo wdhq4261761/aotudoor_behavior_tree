@@ -5,7 +5,6 @@ import os
 import platform
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from copy import deepcopy
 
 from ..theme import Theme
 from .canvas import BehaviorTreeCanvas
@@ -17,7 +16,7 @@ from .log_panel import LogPanel
 from .undo_redo import (
     CommandManager, AddNodeCommand, AddNodesCommand, RemoveNodeCommand,
     RemoveNodesCommand, MoveNodeCommand, MoveNodesCommand, AddConnectionCommand,
-    RemoveConnectionCommand, ClearCanvasCommand
+    RemoveConnectionCommand
 )
 from bt_core.engine import BehaviorTreeEngine
 from bt_core.context import ExecutionContext
@@ -234,7 +233,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         
         name = NODE_DISPLAY_NAMES.get(node_type, node_type)
         
-        # 为特定节点类型生成默认配置
+        """为特定节点类型生成默认配置"""
         node_config = {}
         if node_type == "AlarmNode":
             from bt_utils.resource_manager import ResourceManager
@@ -645,7 +644,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             script_path: 旧脚本文件路径
         """
         import json
-        from bt_utils.resource_service import ResourceService
         
         try:
             with open(script_path, 'r', encoding='utf-8') as f:
@@ -1077,7 +1075,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     
     def _convert_to_project(self):
         """将当前脚本转换为项目文件夹"""
-        from tkinter import filedialog, messagebox
+        from tkinter import messagebox
         from bt_gui.dialogs.new_project_dialog import NewProjectDialog
         
         dialog = NewProjectDialog(self.app)
@@ -1459,7 +1457,6 @@ class BehaviorTreeEditor(ctk.CTkFrame):
     
     def _on_new_project_dialog(self):
         """显示新建项目对话框"""
-        from tkinter import filedialog
         from bt_gui.dialogs.new_project_dialog import NewProjectDialog
         
         dialog = NewProjectDialog(self.app)

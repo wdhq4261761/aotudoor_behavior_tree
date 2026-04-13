@@ -5,90 +5,27 @@
     "name": "未命名",
     "description": "",
     "viewport": {
-      "zoom": 0.4026275000000002,
-      "offset_x": 235.5425901678979,
-      "offset_y": 13.328186094315413
+      "zoom": 0.36798756909523445,
+      "offset_x": 184.55685650956073,
+      "offset_y": 30.45180343195699
     }
   },
-  "root_node": "node_36",
+  "root_node": "start_node",
   "nodes": {
-    "node_36": {
-      "id": "node_36",
-      "type": "SelectorNode",
-      "name": "选择",
+    "start_node": {
+      "id": "start_node",
+      "type": "StartNode",
+      "name": "开始",
       "enabled": true,
       "config": {
-        "child_interval": 0,
-        "retry_count": 0,
-        "repeat_count": -1,
-        "timeout_ms": 0,
-        "name": "选择",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 400,
-        "y": 100
-      },
-      "children": [
-        "node_3",
-        "node_35",
-        "node_41",
-        "node_42",
-        "node_43",
-        "node_56"
-      ]
-    },
-    "node_3": {
-      "id": "node_3",
-      "type": "ImageConditionNode",
-      "name": "识别返回",
-      "enabled": true,
-      "config": {
-        "region": [
-          0,
-          0,
-          1593,
-          1531
-        ],
-        "template_path": "./images/templates/template_20260413_153554.png",
-        "threshold": "10",
-        "invert": false,
-        "retry_count": 0,
-        "name": "识别返回",
-        "description": "",
-        "enabled": true,
-        "timeout_ms": 0,
-        "check_interval_ms": 300,
-        "save_position": true,
-        "position_key": "last_image_position"
-      },
-      "position": {
-        "x": -50.0,
-        "y": 280
-      },
-      "children": [
-        "node_2"
-      ]
-    },
-    "node_40": {
-      "id": "node_40",
-      "type": "SequenceNode",
-      "name": "顺序",
-      "enabled": true,
-      "config": {
-        "child_interval": 2000,
-        "retry_count": 0,
+        "repeat_interval_ms": 1000,
         "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "顺序",
-        "description": "",
-        "enabled": true,
-        "continue_on_failure": false
+        "retry_count": "0",
+        "timeout_ms": "0"
       },
       "position": {
-        "x": 850.0,
-        "y": 1180
+        "x": 569.2059267937767,
+        "y": 188.99604880414887
       },
       "children": [
         "node_1"
@@ -97,795 +34,218 @@
     "node_1": {
       "id": "node_1",
       "type": "MouseClickNode",
-      "name": "挑战成功队长",
+      "name": "抢环1",
       "enabled": true,
       "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
         "position": [
-          1158,
-          1239
+          614,
+          780
         ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "挑战成功队长",
-        "description": "",
-        "enabled": true
+        "name": "抢环1"
       },
       "position": {
-        "x": 850.0,
-        "y": 1360
+        "x": 567.0923942721582,
+        "y": 323.0420191448225
       },
       "children": [
-        "node_4"
+        "node_2"
       ]
     },
-    "node_4": {
-      "id": "node_4",
+    "node_2": {
+      "id": "node_2",
       "type": "MouseClickNode",
-      "name": "挑战成功队友",
+      "name": "抢环2",
       "enabled": true,
       "config": {
-        "name": "挑战成功队友",
-        "description": "",
-        "enabled": true,
-        "button": "left",
-        "action": "press",
-        "duration": 0,
         "position": [
-          357,
-          1195
+          182,
+          555
         ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 1000,
-        "repeat_count": 0,
-        "timeout_ms": 0
+        "name": "抢环2"
       },
       "position": {
-        "x": 850.0,
-        "y": 1540
+        "x": 568.4943698700839,
+        "y": 492.6810664938164
       },
       "children": [
-        "node_48"
+        "node_3"
       ]
     },
-    "node_48": {
-      "id": "node_48",
+    "node_3": {
+      "id": "node_3",
       "type": "DelayNode",
       "name": "延时",
       "enabled": true,
       "config": {
-        "duration_ms": 5000,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "延时",
-        "description": "",
-        "enabled": true
+        "duration_ms": "10000",
+        "name": "延时"
       },
       "position": {
-        "x": 850.0,
-        "y": 1720
-      },
-      "children": [
-        "node_7"
-      ]
-    },
-    "node_7": {
-      "id": "node_7",
-      "type": "MouseClickNode",
-      "name": "复制房间",
-      "enabled": true,
-      "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
-        "position": [
-          1444,
-          914
-        ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "复制房间",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 1900
-      },
-      "children": [
-        "node_8"
-      ]
-    },
-    "node_8": {
-      "id": "node_8",
-      "type": "MouseClickNode",
-      "name": "输入邀请码1",
-      "enabled": true,
-      "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
-        "position": [
-          559,
-          940
-        ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "输入邀请码1",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 2080
+        "x": 589.5240038389674,
+        "y": 684.7517234096194
       },
       "children": [
         "node_10"
       ]
     },
+    "node_9": {
+      "id": "node_9",
+      "type": "ImageConditionNode",
+      "name": "进入失败",
+      "enabled": true,
+      "config": {
+        "region": [
+          393,
+          1045,
+          625,
+          1179
+        ],
+        "template_path": "./images/templates/template_20260413_191435.png",
+        "name": "进入失败"
+      },
+      "position": {
+        "x": 318.24172564036974,
+        "y": 993.6069476326218
+      },
+      "children": [
+        "node_11"
+      ]
+    },
     "node_10": {
       "id": "node_10",
-      "type": "MouseClickNode",
-      "name": "输入邀请码2",
+      "type": "SelectorNode",
+      "name": "选择",
       "enabled": true,
-      "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
-        "position": [
-          551,
-          830
-        ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "输入邀请码2",
-        "description": "",
-        "enabled": true
-      },
+      "config": {},
       "position": {
-        "x": 850.0,
-        "y": 2260
+        "x": 564.2884430763071,
+        "y": 854.390770758613
       },
       "children": [
-        "node_27"
-      ]
-    },
-    "node_27": {
-      "id": "node_27",
-      "type": "ScriptNode",
-      "name": "粘贴",
-      "enabled": true,
-      "config": {
-        "script_path": "./scripts/script/粘贴脚本语言.txt",
-        "loop": false,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "粘贴",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 2440
-      },
-      "children": [
-        "node_50"
-      ]
-    },
-    "node_50": {
-      "id": "node_50",
-      "type": "DelayNode",
-      "name": "延时",
-      "enabled": true,
-      "config": {
-        "duration_ms": 2000,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "延时",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 2620
-      },
-      "children": [
-        "node_32"
-      ]
-    },
-    "node_32": {
-      "id": "node_32",
-      "type": "MouseClickNode",
-      "name": "确认进入1",
-      "enabled": true,
-      "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
-        "position": [
-          628,
-          952
-        ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "确认进入1",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 2800
-      },
-      "children": [
-        "node_30"
-      ]
-    },
-    "node_30": {
-      "id": "node_30",
-      "type": "MouseClickNode",
-      "name": "确认进入2",
-      "enabled": true,
-      "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
-        "position": [
-          366,
-          959
-        ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "确认进入2",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 2980
-      },
-      "children": [
-        "node_51"
-      ]
-    },
-    "node_51": {
-      "id": "node_51",
-      "type": "DelayNode",
-      "name": "延时",
-      "enabled": true,
-      "config": {
-        "duration_ms": 4000,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "延时",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 3160
-      },
-      "children": [
+        "node_9",
         "node_12"
+      ]
+    },
+    "node_11": {
+      "id": "node_11",
+      "type": "KeyPressNode",
+      "name": "连点结束",
+      "enabled": true,
+      "config": {
+        "key": "F8",
+        "name": "连点结束"
+      },
+      "position": {
+        "x": 310.5308598517791,
+        "y": 1169.8352802918662
+      },
+      "children": [
+        "node_14"
       ]
     },
     "node_12": {
       "id": "node_12",
-      "type": "MouseClickNode",
-      "name": "开始战斗",
+      "type": "KeyPressNode",
+      "name": "连点开始",
       "enabled": true,
       "config": {
-        "position": [
-          1157,
-          1263
-        ],
-        "button": "left",
-        "action": "up",
-        "duration": 0,
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 2000,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "开始战斗",
-        "description": "",
-        "enabled": true
+        "name": "连点开始",
+        "key": "F8"
       },
       "position": {
-        "x": 850.0,
-        "y": 3340
-      }
-    },
-    "node_35": {
-      "id": "node_35",
-      "type": "DelayNode",
-      "name": "重新启动",
-      "enabled": true,
-      "config": {
-        "duration_ms": 420000,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "重新启动",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 130.0,
-        "y": 275.03262941552674
+        "x": 605.6186837031528,
+        "y": 1004.0890518531121
       },
       "children": [
-        "node_37"
+        "node_13"
       ]
     },
-    "node_37": {
-      "id": "node_37",
+    "node_13": {
+      "id": "node_13",
       "type": "ImageConditionNode",
-      "name": "识别返回",
+      "name": "图像匹配",
       "enabled": true,
-      "config": {
-        "region": "0,0,1592,1599",
-        "template_path": "./images/templates/返回_2.png",
-        "threshold": 65,
-        "invert": false,
-        "retry_count": 0,
-        "name": "识别返回",
-        "description": "",
-        "enabled": true,
-        "timeout_ms": 0,
-        "check_interval_ms": 300,
-        "save_position": true,
-        "position_key": "last_image_position"
-      },
+      "config": {},
       "position": {
-        "x": 130.0,
-        "y": 460
+        "x": 616.8344884865576,
+        "y": 1168.1669293303344
       },
       "children": [
-        "node_40"
+        "node_16"
       ]
     },
-    "node_41": {
-      "id": "node_41",
-      "type": "DelayNode",
-      "name": "重新启动",
-      "enabled": true,
-      "config": {
-        "duration_ms": 120000,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "重新启动",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 310.0,
-        "y": 280
-      },
-      "children": [
-        "node_38"
-      ]
-    },
-    "node_38": {
-      "id": "node_38",
-      "type": "ImageConditionNode",
-      "name": "识别返回",
-      "enabled": true,
-      "config": {
-        "region": "0,0,1593,1599",
-        "template_path": "./images/templates/返回_3.png",
-        "threshold": 65,
-        "invert": false,
-        "retry_count": 0,
-        "name": "识别返回",
-        "description": "",
-        "enabled": true,
-        "timeout_ms": 0,
-        "check_interval_ms": 300,
-        "save_position": true,
-        "position_key": "last_image_position"
-      },
-      "position": {
-        "x": 314.96737058447326,
-        "y": 460.0
-      }
-    },
-    "node_42": {
-      "id": "node_42",
-      "type": "DelayNode",
-      "name": "重新启动",
-      "enabled": true,
-      "config": {
-        "duration_ms": 120000,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "重新启动",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 490.0,
-        "y": 280
-      },
-      "children": [
-        "node_39"
-      ]
-    },
-    "node_39": {
-      "id": "node_39",
-      "type": "ImageConditionNode",
-      "name": "识别返回",
-      "enabled": true,
-      "config": {
-        "region": "0,0,1595,1599",
-        "template_path": "./images/templates/返回_4.png",
-        "threshold": 65,
-        "invert": false,
-        "retry_count": 0,
-        "name": "识别返回",
-        "description": "",
-        "enabled": true,
-        "save_position": true,
-        "position_key": "last_image_position",
-        "timeout_ms": 0,
-        "check_interval_ms": 300
-      },
-      "position": {
-        "x": 490.0,
-        "y": 460
-      }
-    },
-    "node_43": {
-      "id": "node_43",
-      "type": "DelayNode",
-      "name": "重新启动",
-      "enabled": true,
-      "config": {
-        "duration_ms": 120000,
-        "repeat_count": 0,
-        "timeout_ms": 0,
-        "name": "重新启动",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 670.0,
-        "y": 280
-      },
-      "children": [
-        "node_45"
-      ]
-    },
-    "node_45": {
-      "id": "node_45",
-      "type": "ImageConditionNode",
-      "name": "识别返回",
-      "enabled": true,
-      "config": {
-        "region": "0,0,1588,1599",
-        "template_path": "./images/templates/返回_5.png",
-        "threshold": 65,
-        "invert": false,
-        "retry_count": 0,
-        "name": "识别返回",
-        "description": "",
-        "enabled": true,
-        "timeout_ms": 0,
-        "check_interval_ms": 300,
-        "save_position": true,
-        "position_key": "last_image_position"
-      },
-      "position": {
-        "x": 670.0,
-        "y": 460
-      }
-    },
-    "node_56": {
-      "id": "node_56",
-      "type": "MouseClickNode",
-      "name": "队长退出1",
-      "enabled": true,
-      "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
-        "position": [
-          891,
-          160
-        ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 1,
-        "timeout_ms": 0,
-        "name": "队长退出1",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 280
-      },
-      "children": [
-        "node_62"
-      ]
-    },
-    "node_62": {
-      "id": "node_62",
-      "type": "MouseClickNode",
-      "name": "队长退出2",
-      "enabled": true,
-      "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
-        "position": [
-          1014,
-          1256
-        ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 1,
-        "timeout_ms": 0,
-        "name": "队长退出2",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 460
-      },
-      "children": [
-        "node_57"
-      ]
-    },
-    "node_57": {
-      "id": "node_57",
-      "type": "MouseClickNode",
-      "name": "队员退出1",
-      "enabled": true,
-      "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
-        "position": [
-          122,
-          212
-        ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 1,
-        "timeout_ms": 0,
-        "name": "队员退出1",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 850.0,
-        "y": 640
-      },
-      "children": [
-        "node_63"
-      ]
-    },
-    "node_63": {
-      "id": "node_63",
-      "type": "MouseClickNode",
-      "name": "队员退出2",
-      "enabled": true,
-      "config": {
-        "button": "left",
-        "action": "press",
-        "duration": 0,
-        "position": [
-          221,
-          1220
-        ],
-        "use_blackboard": false,
-        "position_key": "",
-        "click_count": 1,
-        "click_interval": 100,
-        "repeat_count": 1,
-        "timeout_ms": 0,
-        "name": "队员退出2",
-        "description": "",
-        "enabled": true
-      },
-      "position": {
-        "x": 863.0622066458725,
-        "y": 788.2774981457382
-      },
-      "children": [
-        "node_46"
-      ]
-    },
-    "node_46": {
-      "id": "node_46",
-      "type": "ImageConditionNode",
-      "name": "识别返回",
-      "enabled": true,
-      "config": {
-        "region": "0,0,1589,1599",
-        "template_path": "./images/templates/返回_6.png",
-        "threshold": 60,
-        "invert": false,
-        "retry_count": 50,
-        "name": "识别返回",
-        "description": "",
-        "enabled": true,
-        "timeout_ms": 0,
-        "check_interval_ms": 300,
-        "save_position": true,
-        "position_key": "last_image_position"
-      },
-      "position": {
-        "x": 924.5105587670986,
-        "y": 950.3262941552674
-      }
-    },
-    "node_2": {
-      "id": "node_2",
+    "node_14": {
+      "id": "node_14",
       "type": "DelayNode",
       "name": "延时",
       "enabled": true,
       "config": {
-        "duration_ms": "800000"
+        "duration_ms": "60000"
       },
       "position": {
-        "x": -49.86486064688837,
-        "y": 454.432664731178
+        "x": 301.22763017906476,
+        "y": 1327.3954666793725
+      }
+    },
+    "node_16": {
+      "id": "node_16",
+      "type": "DelayNode",
+      "name": "延时",
+      "enabled": true,
+      "config": {
+        "duration_ms": "60000"
+      },
+      "position": {
+        "x": 620.9992486851991,
+        "y": 1344.993511372174
       }
     }
   },
   "connections": [
     {
-      "parent_id": "node_36",
-      "child_id": "node_3"
-    },
-    {
-      "parent_id": "node_36",
-      "child_id": "node_35"
-    },
-    {
-      "parent_id": "node_36",
-      "child_id": "node_41"
-    },
-    {
-      "parent_id": "node_36",
-      "child_id": "node_42"
-    },
-    {
-      "parent_id": "node_36",
-      "child_id": "node_43"
-    },
-    {
-      "parent_id": "node_36",
-      "child_id": "node_56"
-    },
-    {
-      "parent_id": "node_3",
-      "child_id": "node_2"
-    },
-    {
-      "parent_id": "node_40",
+      "parent_id": "start_node",
       "child_id": "node_1"
     },
     {
       "parent_id": "node_1",
-      "child_id": "node_4"
+      "child_id": "node_2"
     },
     {
-      "parent_id": "node_4",
-      "child_id": "node_48"
+      "parent_id": "node_2",
+      "child_id": "node_3"
     },
     {
-      "parent_id": "node_48",
-      "child_id": "node_7"
-    },
-    {
-      "parent_id": "node_7",
-      "child_id": "node_8"
-    },
-    {
-      "parent_id": "node_8",
+      "parent_id": "node_3",
       "child_id": "node_10"
     },
     {
+      "parent_id": "node_9",
+      "child_id": "node_11"
+    },
+    {
       "parent_id": "node_10",
-      "child_id": "node_27"
+      "child_id": "node_9"
     },
     {
-      "parent_id": "node_27",
-      "child_id": "node_50"
-    },
-    {
-      "parent_id": "node_50",
-      "child_id": "node_32"
-    },
-    {
-      "parent_id": "node_32",
-      "child_id": "node_30"
-    },
-    {
-      "parent_id": "node_30",
-      "child_id": "node_51"
-    },
-    {
-      "parent_id": "node_51",
+      "parent_id": "node_10",
       "child_id": "node_12"
     },
     {
-      "parent_id": "node_35",
-      "child_id": "node_37"
+      "parent_id": "node_11",
+      "child_id": "node_14"
     },
     {
-      "parent_id": "node_37",
-      "child_id": "node_40"
+      "parent_id": "node_12",
+      "child_id": "node_13"
     },
     {
-      "parent_id": "node_41",
-      "child_id": "node_38"
-    },
-    {
-      "parent_id": "node_42",
-      "child_id": "node_39"
-    },
-    {
-      "parent_id": "node_43",
-      "child_id": "node_45"
-    },
-    {
-      "parent_id": "node_56",
-      "child_id": "node_62"
-    },
-    {
-      "parent_id": "node_62",
-      "child_id": "node_57"
-    },
-    {
-      "parent_id": "node_57",
-      "child_id": "node_63"
-    },
-    {
-      "parent_id": "node_63",
-      "child_id": "node_46"
+      "parent_id": "node_13",
+      "child_id": "node_16"
     }
   ],
   "metadata": {
-    "modified_at": "2026-04-13T19:39:47.597802",
+    "modified_at": "2026-04-13T21:35:22.904308",
     "save_type": "auto",
-    "file_path": "C:\\Users\\WINDOWS\\AppData\\Roaming\\autodoor_behavior_tree\\workspace\\360打环\\tree.json"
+    "file_path": "C:\\Users\\WINDOWS\\AppData\\Roaming\\autodoor_behavior_tree\\workspace\\抢环测试\\tree.json"
   }
 }
