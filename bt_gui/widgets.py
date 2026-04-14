@@ -259,8 +259,12 @@ def create_color_picker(app, callback):
     canvas.pack(fill=tk.BOTH, expand=True)
     
     def on_click(event):
+        import time
+        
         selection_window.withdraw()
         selection_window.update()
+        
+        time.sleep(0.2)
         
         abs_x, abs_y = event.x_root, event.y_root
         

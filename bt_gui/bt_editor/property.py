@@ -162,6 +162,11 @@ class FieldWidget(ctk.CTkFrame):
     
     def get_value(self) -> Any:
         return None
+    
+    def validate_and_save(self):
+        """验证并保存当前值，子类可重写此方法实现自定义验证逻辑"""
+        if hasattr(self, 'var'):
+            self.on_change(self.key, self.var.get())
 
 
 class TextField(FieldWidget):
@@ -1152,6 +1157,7 @@ class ColorField(FieldWidget):
     def __init__(self, master, label: str, key: str, on_change: Callable, app, **kwargs):
         self.app = app
         self._current_color = "#808080"
+        self._last_validate_time = 0
         super().__init__(master, label, key, on_change, **kwargs)
         self._create_widget()
     
@@ -1180,10 +1186,10 @@ class ColorField(FieldWidget):
             fg_color=self._dark_colors['bg_tertiary'],
             border_color=self._dark_colors['border'],
             text_color=self._dark_colors['text_primary'],
-            corner_radius=Theme.DIMENSIONS['button_corner_radius'],
-            state="disabled"
+            corner_radius=Theme.DIMENSIONS['button_corner_radius']
         )
         self.entry.pack(side="left", padx=(0, Theme.DIMENSIONS['spacing_xs']))
+        self.entry.bind("<FocusOut>", lambda e: self._parse_and_change())
         
         self.btn = ctk.CTkButton(
             input_frame,
@@ -1198,12 +1204,63 @@ class ColorField(FieldWidget):
         )
         self.btn.pack(side="right")
     
+    def _parse_and_change(self):
+        import time
+        from tkinter import messagebox
+        
+        current_time = time.time()
+        if current_time - self._last_validate_time < 0.5:
+            return
+        self._last_validate_time = current_time
+        
+        text = self.var.get().strip()
+        if text == "未选择" or not text:
+            return
+        
+        parts = text.replace(" ", "").split(",")
+        
+        if len(parts) != 3:
+            messagebox.showwarning("格式错误", "请输入正确的颜色格式: R, G, B\n例如: 255, 0, 0")
+            if self._rgb_value:
+                self.var.set(f"{self._rgb_value[0]}, {self._rgb_value[1]}, {self._rgb_value[2]}")
+            else:
+                self.var.set("未选择")
+            return
+        
+        try:
+            r = int(parts[0])
+            g = int(parts[1])
+            b = int(parts[2])
+        except ValueError:
+            messagebox.showwarning("数值错误", "颜色值必须是整数\n例如: 255, 128, 0")
+            if self._rgb_value:
+                self.var.set(f"{self._rgb_value[0]}, {self._rgb_value[1]}, {self._rgb_value[2]}")
+            else:
+                self.var.set("未选择")
+            return
+        
+        if not (0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255):
+            r = max(0, min(255, r))
+            g = max(0, min(255, g))
+            b = max(0, min(255, b))
+            messagebox.showwarning("数值范围", f"颜色值已自动修正到 0-255 范围\n修正后: {r}, {g}, {b}")
+        
+        self.var.set(f"{r}, {g}, {b}")
+        self._current_color = f"#{r:02x}{g:02x}{b:02x}"
+        self._rgb_value = [r, g, b]
+        self.preview.configure(fg_color=self._current_color)
+        self.on_change(self.key, self._rgb_value)
+    
+    def validate_and_save(self):
+        """验证并保存当前值（重写父类方法）"""
+        self._parse_and_change()
+    
     def _pick_color(self):
         from bt_gui.widgets import create_color_picker
         
         def on_color_picked(rgb):
             r, g, b = rgb
-            self.var.set(f"RGB({r}, {g}, {b})")
+            self.var.set(f"{r}, {g}, {b}")
             self._current_color = f"#{r:02x}{g:02x}{b:02x}"
             self._rgb_value = [r, g, b]
             self.preview.configure(fg_color=self._current_color)
@@ -1214,7 +1271,10 @@ class ColorField(FieldWidget):
     def set_value(self, value: Any):
         if isinstance(value, (list, tuple)) and len(value) >= 3:
             r, g, b = int(value[0]), int(value[1]), int(value[2])
-            self.var.set(f"RGB({r}, {g}, {b})")
+            r = max(0, min(255, r))
+            g = max(0, min(255, g))
+            b = max(0, min(255, b))
+            self.var.set(f"{r}, {g}, {b}")
             self._current_color = f"#{r:02x}{g:02x}{b:02x}"
             self._rgb_value = [r, g, b]
             self.preview.configure(fg_color=self._current_color)
@@ -1223,7 +1283,20 @@ class ColorField(FieldWidget):
             self._rgb_value = None
     
     def get_value(self) -> Any:
-        return self._rgb_value
+        try:
+            text = self.var.get().strip()
+            if text == "未选择" or not text:
+                return self._rgb_value
+            
+            parts = text.replace(" ", "").split(",")
+            if len(parts) >= 3:
+                r = max(0, min(255, int(parts[0])))
+                g = max(0, min(255, int(parts[1])))
+                b = max(0, min(255, int(parts[2])))
+                return [r, g, b]
+            return self._rgb_value
+        except (ValueError, AttributeError):
+            return self._rgb_value
 
 
 class PropertyPanel(ctk.CTkFrame):
@@ -1297,11 +1370,10 @@ class PropertyPanel(ctk.CTkFrame):
     
     def _save_widget_value(self, widget):
         """保存控件的值"""
-        if hasattr(widget, 'on_change') and hasattr(widget, 'var'):
-            try:
-                widget.on_change(widget.key, widget.var.get())
-            except Exception:
-                pass
+        try:
+            widget.validate_and_save()
+        except Exception:
+            pass
     
     def _create_ui(self):
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
