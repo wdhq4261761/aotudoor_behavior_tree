@@ -374,6 +374,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self._delete_nodes_with_check(node_ids)
         elif self.canvas.selected_node:
             self._delete_nodes_with_check([self.canvas.selected_node])
+        elif self.canvas.selected_connections:
+            self._delete_connections(list(self.canvas.selected_connections))
         elif self.canvas.selected_connection:
             self._delete_connection(self.canvas.selected_connection)
     
@@ -411,6 +413,25 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             child_id=child_id
         )
         self.command_manager.execute(command)
+        self.canvas.selected_connection = None
+        self._update_toolbar()
+        self._set_modified(True)
+    
+    def _delete_connections(self, connections: List[tuple]) -> None:
+        """批量删除连接
+        
+        Args:
+            connections: 连接列表,每个元素为 (parent_id, child_id) 元组
+        """
+        for connection in connections:
+            parent_id, child_id = connection
+            command = RemoveConnectionCommand(
+                canvas=self.canvas,
+                parent_id=parent_id,
+                child_id=child_id
+            )
+            self.command_manager.execute(command)
+        self.canvas.selected_connections = []
         self.canvas.selected_connection = None
         self._update_toolbar()
         self._set_modified(True)

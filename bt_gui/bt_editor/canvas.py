@@ -28,6 +28,7 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         self.selected_node: Optional[str] = None
         self.selected_nodes: List[str] = []
         self.selected_connection: Optional[tuple] = None
+        self.selected_connections: List[tuple] = []
         self.on_node_select = on_node_select
         self.on_node_move = on_node_move
         self.on_nodes_move = on_nodes_move
@@ -203,6 +204,16 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                     self.selected_nodes.append(node_id)
                     node.set_selected(True)
                 return
+        
+        clicked_connection = self._find_connection_at(x, y)
+        if clicked_connection:
+            if clicked_connection in self.selected_connections:
+                self.selected_connections.remove(clicked_connection)
+                self._update_connection_style(clicked_connection, selected=False)
+            else:
+                self.selected_connections.append(clicked_connection)
+                self._update_connection_style(clicked_connection, selected=True)
+            return
     
     def _start_connecting(self, node_id: str, x: float, y: float):
         self._connecting = True
@@ -441,6 +452,12 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         elif self.selected_node:
             menu.add_command(label="删除节点", command=lambda: self.remove_node(self.selected_node))
             menu.add_command(label="复制节点", command=lambda: self._copy_node(self.selected_node))
+        elif self.selected_connections:
+            if len(self.selected_connections) > 1:
+                menu.add_command(label=f"删除 {len(self.selected_connections)} 条连线", 
+                               command=self._delete_selected_connections)
+            else:
+                menu.add_command(label="删除连线", command=self.remove_selected_connection)
         elif self.selected_connection:
             menu.add_command(label="删除连线", command=self.remove_selected_connection)
         
@@ -513,16 +530,31 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
     def _select_connection(self, conn_key: tuple):
         self._deselect_all()
         self.selected_connection = conn_key
+        self.selected_connections = [conn_key]
         
         if conn_key in self.connection_items:
             line_id = self.connection_items[conn_key]
             self.canvas.itemconfig(line_id, fill=self._dark_colors.get('node_selected', '#FFD700'), width=3)
+    
+    def _update_connection_style(self, conn_key: tuple, selected: bool):
+        if conn_key in self.connection_items:
+            line_id = self.connection_items[conn_key]
+            if selected:
+                self.canvas.itemconfig(line_id, fill=self._dark_colors.get('node_selected', '#FFD700'), width=3)
+            else:
+                self.canvas.itemconfig(line_id, fill=self._dark_colors['connection_line'], width=2)
     
     def _deselect_connection(self):
         if self.selected_connection and self.selected_connection in self.connection_items:
             line_id = self.connection_items[self.selected_connection]
             self.canvas.itemconfig(line_id, fill=self._dark_colors['connection_line'], width=2)
         self.selected_connection = None
+        
+        for conn_key in self.selected_connections:
+            if conn_key in self.connection_items:
+                line_id = self.connection_items[conn_key]
+                self.canvas.itemconfig(line_id, fill=self._dark_colors['connection_line'], width=2)
+        self.selected_connections = []
     
     def remove_selected_connection(self):
         if self.selected_connection:
@@ -534,6 +566,17 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                 del self.connection_items[conn_key]
             self.selected_connection = None
             self._redraw_connections()
+    
+    def _delete_selected_connections(self):
+        for conn_key in self.selected_connections[:]:
+            if conn_key in self.connections:
+                self.connections.remove(conn_key)
+            if conn_key in self.connection_items:
+                self.canvas.delete(self.connection_items[conn_key])
+                del self.connection_items[conn_key]
+        self.selected_connections = []
+        self.selected_connection = None
+        self._redraw_connections()
     
     def _show_add_dialog(self, x: float, y: float):
         pass
@@ -611,7 +654,8 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                 
                 mid_y = (start_y + end_y) / 2
                 
-                is_selected = self.selected_connection == (parent_id, child_id)
+                is_selected = ((parent_id, child_id) == self.selected_connection or 
+                              (parent_id, child_id) in self.selected_connections)
                 line_color = self._dark_colors.get('node_selected', '#FFD700') if is_selected else self._dark_colors['connection_line']
                 line_width = 3 if is_selected else 2
                 
@@ -1098,6 +1142,11 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
             x, y
         )
         
+        selected_connections = self._get_connections_in_selection_box(
+            self._selection_start[0], self._selection_start[1],
+            x, y
+        )
+        
         if not self._selection_append:
             self._deselect_all()
         
@@ -1106,11 +1155,19 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                 self.selected_nodes.append(node_id)
                 self.nodes[node_id].set_selected(True)
         
+        for conn_key in selected_connections:
+            if conn_key not in self.selected_connections:
+                self.selected_connections.append(conn_key)
+                self._update_connection_style(conn_key, selected=True)
+        
         if self.selected_nodes:
             self.selected_node = self.selected_nodes[0]
             if self.on_node_select and len(self.selected_nodes) == 1:
                 node = self.nodes[self.selected_node]
                 self.on_node_select(self.selected_node, node.node_type)
+        
+        if self.selected_connections:
+            self.selected_connection = self.selected_connections[0]
         
         self._selecting = False
     
@@ -1127,5 +1184,37 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
             if not (nx2 < min_x or nx1 > max_x or 
                     ny2 < min_y or ny1 > max_y):
                 selected.append(node_id)
+        
+        return selected
+    
+    def _get_connections_in_selection_box(self, x1: float, y1: float,
+                                          x2: float, y2: float) -> List[tuple]:
+        selected = []
+        
+        min_x, max_x = min(x1, x2), max(x1, x2)
+        min_y, max_y = min(y1, y2), max(y1, y2)
+        
+        for conn_key in self.connections:
+            parent_id, child_id = conn_key
+            if parent_id in self.nodes and child_id in self.nodes:
+                parent_node = self.nodes[parent_id]
+                child_node = self.nodes[child_id]
+                
+                start_x, start_y = parent_node.get_output_port_pos()
+                end_x, end_y = child_node.get_input_port_pos()
+                
+                mid_y = (start_y + end_y) / 2
+                
+                line_points = [
+                    (start_x, start_y),
+                    (start_x, mid_y),
+                    (end_x, mid_y),
+                    (end_x, end_y)
+                ]
+                
+                for px, py in line_points:
+                    if min_x <= px <= max_x and min_y <= py <= max_y:
+                        selected.append(conn_key)
+                        break
         
         return selected
