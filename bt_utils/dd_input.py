@@ -109,28 +109,6 @@ VK_CODE_MAP = {
 }
 
 
-def _show_message_box(title: str, message: str, msg_type: str = "info"):
-    """显示消息框"""
-    try:
-        import ctypes
-        if msg_type == "error":
-            ctypes.windll.user32.MessageBoxW(0, message, title, 0x10)
-        elif msg_type == "warning":
-            ctypes.windll.user32.MessageBoxW(0, message, title, 0x30)
-        else:
-            ctypes.windll.user32.MessageBoxW(0, message, title, 0x40)
-    except Exception:
-        pass
-
-
-def _safe_print(message: str):
-    """安全打印，处理编码问题"""
-    try:
-        print(message)
-    except UnicodeEncodeError:
-        pass
-
-
 class DDVirtualInput(BaseInputController):
     """DD虚拟键盘输入控制器"""
     

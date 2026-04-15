@@ -145,7 +145,7 @@ class GlobalHotkeyManager:
     def _on_press(self, key):
         """按键按下事件处理"""
         try:
-            from bt_utils.input_controller import InputController
+            from bt_utils.input_controller_factory import InputController
             if InputController.is_simulating():
                 return
             

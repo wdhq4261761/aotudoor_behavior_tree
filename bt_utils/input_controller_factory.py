@@ -4,7 +4,6 @@
 支持DD虚拟键盘和PyAutoGUI两种方式
 """
 import os
-import sys
 import threading
 import time
 from typing import Optional, Tuple
@@ -15,14 +14,6 @@ from .base_input import BaseInputController
 USE_DD_INPUT = os.environ.get('AUTODOOR_USE_DD', '0') == '1'
 
 _dd_input_instance = None
-
-
-def _safe_print(message: str):
-    """安全打印，处理编码问题"""
-    try:
-        print(message)
-    except UnicodeEncodeError:
-        pass
 
 
 def _get_dd_input(app=None):
@@ -213,6 +204,65 @@ class InputController:
     根据环境变量 AUTODOOR_USE_DD 自动选择DD虚拟键盘或PyAutoGUI
     """
     
+    _simulate_lock = threading.Lock()
+    _simulating = False
+    
+    @classmethod
+    def is_simulating(cls) -> bool:
+        """检查当前是否正在执行模拟操作"""
+        with cls._simulate_lock:
+            return cls._simulating
+    
+    @classmethod
+    def _set_simulating(cls, value: bool):
+        """设置模拟状态"""
+        with cls._simulate_lock:
+            cls._simulating = value
+    
+    @classmethod
+    def release_all(cls):
+        """释放所有按下的按键和鼠标按钮"""
+        cls._set_simulating(True)
+        try:
+            from pynput import keyboard, mouse
+            
+            keyboard_controller = keyboard.Controller()
+            mouse_controller = mouse.Controller()
+            
+            for key in [keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r,
+                       keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r,
+                       keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r,
+                       keyboard.Key.cmd, keyboard.Key.cmd_l, keyboard.Key.cmd_r,
+                       keyboard.Key.caps_lock, keyboard.Key.num_lock,
+                       keyboard.Key.scroll_lock]:
+                try:
+                    keyboard_controller.release(key)
+                except:
+                    pass
+            
+            for char in 'abcdefghijklmnopqrstuvwxyz0123456789':
+                try:
+                    keyboard_controller.release(char)
+                except:
+                    pass
+            
+            for key_name in ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12',
+                            'space', 'enter', 'tab', 'escape', 'backspace', 'delete', 'insert',
+                            'home', 'end', 'page_up', 'page_down', 'up', 'down', 'left', 'right']:
+                try:
+                    keyboard_controller.release(getattr(keyboard.Key, key_name, None))
+                except:
+                    pass
+            
+            mouse_controller.release(mouse.Button.left)
+            mouse_controller.release(mouse.Button.right)
+            mouse_controller.release(mouse.Button.middle)
+            
+        except Exception:
+            pass
+        finally:
+            cls._set_simulating(False)
+    
     def __init__(self, app=None, method: str = None):
         self.app = app
         self._method = method
@@ -289,6 +339,10 @@ class InputController:
     def mouse_scroll(self, amount: int, position: tuple = None) -> None:
         if self._impl:
             self._impl.mouse_scroll(amount, position)
+    
+    def move_to(self, x: int, y: int, smooth: bool = False, duration: float = 0.3) -> None:
+        """移动鼠标到指定位置"""
+        self.mouse_move((x, y), relative=False, smooth=smooth, duration=duration)
     
     def get_position(self) -> tuple:
         try:

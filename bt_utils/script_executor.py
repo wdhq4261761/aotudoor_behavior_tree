@@ -71,7 +71,7 @@ class ScriptExecutor:
     @property
     def input_controller(self):
         if self._input_controller is None:
-            from .input_controller import InputController
+            from .input_controller_factory import InputController
             self._input_controller = InputController()
         return self._input_controller
     

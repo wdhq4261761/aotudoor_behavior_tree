@@ -1,5 +1,5 @@
 from .screenshot import ScreenshotManager
-from .input_controller import InputController
+from .input_controller_factory import InputController
 from .ocr_manager import OCRManager
 from .image_processor import ImageProcessor
 from .recorder import ScriptRecorder

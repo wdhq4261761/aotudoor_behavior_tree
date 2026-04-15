@@ -1252,7 +1252,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self.engine = None
             self.context = None
         
-        from bt_utils.input_controller import InputController
+        from bt_utils.input_controller_factory import InputController
         InputController.release_all()
         
         self.canvas.after(100, self._clear_status_after_stop)

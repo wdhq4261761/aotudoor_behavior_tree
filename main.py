@@ -3,7 +3,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-VERSION = "V1.1.7"
+VERSION = "V1.1.8"
 
 import customtkinter as ctk
 from bt_gui.app import BehaviorTreeApp

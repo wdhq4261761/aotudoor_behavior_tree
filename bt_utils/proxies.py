@@ -195,16 +195,9 @@ class InputProxy:
 
     def _get_controller(self):
         if self._controller is None:
-            if self._use_dd:
-                try:
-                    from bt_utils.dd_input import DDVirtualInput
-                    self._controller = DDVirtualInput()
-                except Exception:
-                    from bt_utils.input_controller import InputController
-                    self._controller = InputController()
-            else:
-                from bt_utils.input_controller import InputController
-                self._controller = InputController()
+            from bt_utils.input_controller_factory import InputController
+            method = 'dd' if self._use_dd else 'pyautogui'
+            self._controller = InputController(method=method)
         return self._controller
 
     @classmethod
