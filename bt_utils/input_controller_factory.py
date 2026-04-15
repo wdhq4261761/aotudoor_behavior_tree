@@ -4,9 +4,10 @@
 支持DD虚拟键盘和PyAutoGUI两种方式
 """
 import os
+import sys
 import threading
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 from .base_input import BaseInputController
 
@@ -14,7 +15,14 @@ from .base_input import BaseInputController
 USE_DD_INPUT = os.environ.get('AUTODOOR_USE_DD', '0') == '1'
 
 _dd_input_instance = None
-_pyautogui_input_instance = None
+
+
+def _safe_print(message: str):
+    """安全打印，处理编码问题"""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        pass
 
 
 def _get_dd_input(app=None):
@@ -41,120 +49,161 @@ class PyAutoGUIInput(BaseInputController):
         import pyautogui
         pyautogui.FAILSAFE = False
     
-    @property
-    def method_name(self) -> str:
+    def get_name(self) -> str:
         return "PyAutoGUI"
-    
-    @property
-    def is_available(self) -> bool:
-        return self._available
     
     def _log(self, message: str):
         """日志输出"""
-        if self.app:
-            if hasattr(self.app, 'logging_manager'):
-                self.app.logging_manager.log_message(message)
-            else:
-                print(message)
+        pass
     
     def _set_simulating(self, value: bool):
         with self._simulate_lock:
             self._simulating = value
     
-    def key_down(self, key: str, priority: int = 0) -> bool:
+    def key_press(self, key: str, action: str = "press", duration: int = 0) -> None:
+        """按键操作"""
+        import pyautogui
+        self._set_simulating(True)
+        try:
+            if action == "press":
+                if duration > 0:
+                    pyautogui.keyDown(key)
+                    time.sleep(duration / 1000.0)
+                    pyautogui.keyUp(key)
+                else:
+                    pyautogui.press(key)
+            elif action == "down":
+                pyautogui.keyDown(key)
+            elif action == "up":
+                pyautogui.keyUp(key)
+        finally:
+            self._set_simulating(False)
+    
+    def key_down(self, key: str) -> None:
+        """按下按键"""
         import pyautogui
         self._set_simulating(True)
         try:
             pyautogui.keyDown(key)
-            return True
-        except Exception as e:
-            self._log(f"❌ 按键按下错误: {str(e)}")
-            return False
         finally:
             self._set_simulating(False)
     
-    def key_up(self, key: str, priority: int = 0) -> bool:
+    def key_up(self, key: str) -> None:
+        """释放按键"""
         import pyautogui
         self._set_simulating(True)
         try:
             pyautogui.keyUp(key)
-            return True
-        except Exception as e:
-            self._log(f"❌ 按键抬起错误: {str(e)}")
-            return False
         finally:
             self._set_simulating(False)
     
-    def press_key(self, key: str, delay: float = 0, priority: int = 0) -> bool:
+    def mouse_click(self, button: str = "left", position: Tuple[int, int] = None,
+                   action: str = "press", duration: int = 0) -> None:
+        """鼠标点击"""
         import pyautogui
         self._set_simulating(True)
         try:
-            if delay > 0:
-                pyautogui.keyDown(key)
-                time.sleep(delay)
-                pyautogui.keyUp(key)
-            else:
-                pyautogui.press(key)
-            return True
-        except Exception as e:
-            self._log(f"❌ 按键执行错误: {str(e)}")
-            return False
+            if position:
+                pyautogui.moveTo(position[0], position[1])
+            
+            if action == "press":
+                if duration > 0:
+                    pyautogui.mouseDown(button=button)
+                    time.sleep(duration / 1000.0)
+                    pyautogui.mouseUp(button=button)
+                else:
+                    pyautogui.click(button=button)
+            elif action == "down":
+                pyautogui.mouseDown(button=button)
+            elif action == "up":
+                pyautogui.mouseUp(button=button)
         finally:
             self._set_simulating(False)
     
-    def mouse_move(self, x: int, y: int) -> bool:
+    def mouse_down(self, button: str = "left") -> None:
+        """按下鼠标"""
         import pyautogui
-        try:
-            pyautogui.moveTo(x, y)
-            return True
-        except Exception as e:
-            self._log(f"❌ 鼠标移动错误: {str(e)}")
-            return False
-    
-    def mouse_move_relative(self, dx: int, dy: int) -> bool:
-        import pyautogui
-        try:
-            pyautogui.moveRel(dx, dy)
-            return True
-        except Exception as e:
-            self._log(f"❌ 鼠标相对移动错误: {str(e)}")
-            return False
-    
-    def mouse_click(self, button: str = 'left') -> bool:
-        import pyautogui
-        try:
-            pyautogui.click(button=button)
-            return True
-        except Exception as e:
-            self._log(f"❌ 鼠标点击错误: {str(e)}")
-            return False
-    
-    def mouse_down(self, button: str = 'left') -> bool:
-        import pyautogui
+        self._set_simulating(True)
         try:
             pyautogui.mouseDown(button=button)
-            return True
-        except Exception as e:
-            self._log(f"❌ 鼠标按下错误: {str(e)}")
-            return False
+        finally:
+            self._set_simulating(False)
     
-    def mouse_up(self, button: str = 'left') -> bool:
+    def mouse_up(self, button: str = "left") -> None:
+        """释放鼠标"""
         import pyautogui
+        self._set_simulating(True)
         try:
             pyautogui.mouseUp(button=button)
-            return True
-        except Exception as e:
-            self._log(f"❌ 鼠标抬起错误: {str(e)}")
-            return False
+        finally:
+            self._set_simulating(False)
     
-    def mouse_scroll(self, clicks: int) -> bool:
+    def mouse_move(self, position: Tuple[int, int], relative: bool = False) -> None:
+        """移动鼠标"""
         import pyautogui
-        try:
-            pyautogui.scroll(clicks)
-            return True
-        except Exception as e:
-            self._log(f"❌ 鼠标滚轮错误: {str(e)}")
-            return False
+        if relative:
+            pyautogui.move(position[0], position[1])
+        else:
+            pyautogui.moveTo(position[0], position[1])
+    
+    def mouse_scroll(self, amount: int, position: Tuple[int, int] = None) -> None:
+        """鼠标滚轮"""
+        import pyautogui
+        if position:
+            pyautogui.moveTo(position[0], position[1])
+        pyautogui.scroll(amount)
+
+
+class DDInputWrapper(BaseInputController):
+    """DD输入控制器包装器"""
+    
+    def __init__(self, dd_instance, app=None):
+        self._dd = dd_instance
+        self.app = app
+    
+    def get_name(self) -> str:
+        return "DD虚拟键盘"
+    
+    def _log(self, message: str):
+        pass
+    
+    def key_press(self, key: str, action: str = "press", duration: int = 0) -> None:
+        """按键操作"""
+        if action == "press":
+            self._dd.key_press(key, action, duration)
+        elif action == "down":
+            self._dd.key_down(key)
+        elif action == "up":
+            self._dd.key_up(key)
+    
+    def key_down(self, key: str) -> None:
+        """按下按键"""
+        self._dd.key_down(key)
+    
+    def key_up(self, key: str) -> None:
+        """释放按键"""
+        self._dd.key_up(key)
+    
+    def mouse_click(self, button: str = "left", position: Tuple[int, int] = None,
+                   action: str = "press", duration: int = 0) -> None:
+        """鼠标点击"""
+        self._dd.mouse_click(button, position, action, duration)
+    
+    def mouse_down(self, button: str = "left") -> None:
+        """按下鼠标"""
+        self._dd.mouse_down(button)
+    
+    def mouse_up(self, button: str = "left") -> None:
+        """释放鼠标"""
+        self._dd.mouse_up(button)
+    
+    def mouse_move(self, position: Tuple[int, int], relative: bool = False) -> None:
+        """移动鼠标"""
+        self._dd.mouse_move(position, relative)
+    
+    def mouse_scroll(self, amount: int, position: Tuple[int, int] = None) -> None:
+        """鼠标滚轮"""
+        self._dd.mouse_scroll(amount, position)
 
 
 class InputController:
@@ -162,18 +211,9 @@ class InputController:
     输入控制器类（工厂模式）
     
     根据环境变量 AUTODOOR_USE_DD 自动选择DD虚拟键盘或PyAutoGUI
-    保持与现有代码的完全兼容
     """
     
     def __init__(self, app=None, method: str = None):
-        """
-        初始化输入控制器
-        
-        Args:
-            app: 应用实例
-            method: 输入方式，可选 'pyautogui' 或 'dd'
-                   如果为None，则根据环境变量自动选择
-        """
         self.app = app
         self._method = method
         self._impl = None
@@ -191,98 +231,48 @@ class InputController:
                 method = 'pyautogui'
         
         if method == 'dd':
-            impl = _get_dd_input(self.app)
-            if impl and impl.is_available:
-                self._impl = impl
+            dd_instance = _get_dd_input(self.app)
+            if dd_instance and dd_instance.is_available:
+                self._impl = DDInputWrapper(dd_instance, self.app)
                 self._method = 'dd'
-                self._log(f"✅ InputController初始化完成，使用DD虚拟键盘")
+                return
+            else:
+                # DD版本：如果DD不可用，不回退到PyAutoGUI，保持为None
+                self._impl = None
+                self._method = 'dd'
                 return
         
-        impl = PyAutoGUIInput(self.app)
-        if impl and impl.is_available:
-            self._impl = impl
-            self._method = 'pyautogui'
-            self._log(f"✅ InputController初始化完成，使用PyAutoGUI")
-        else:
-            self._log("❌ InputController初始化失败：无可用的输入方式")
+        # 非DD版本：使用PyAutoGUI
+        self._impl = PyAutoGUIInput(self.app)
+        self._method = 'pyautogui'
     
     @property
     def method(self) -> str:
-        """返回当前使用的输入方式"""
         return self._method
     
     @property
-    def method_name(self) -> str:
-        """返回当前输入方式的名称"""
-        if self._impl:
-            return self._impl.method_name
-        return "Unknown"
-    
-    @property
     def is_available(self) -> bool:
-        """返回当前输入方式是否可用"""
-        if self._impl:
-            return self._impl.is_available
-        return False
+        return self._impl is not None
     
     def _log(self, message: str):
-        """日志输出"""
-        if self.app:
-            if hasattr(self.app, 'logging_manager'):
-                self.app.logging_manager.log_message(message)
-            else:
-                print(message)
-        else:
-            print(message)
+        pass
     
     def key_press(self, key: str, action: str = "press", duration: int = 0) -> None:
-        """按键操作（兼容旧接口）"""
-        if action == "press":
-            self.press_key(key, delay=duration / 1000.0 if duration > 0 else 0)
-        elif action == "down":
-            self.key_down(key)
-        elif action == "up":
-            self.key_up(key)
-    
-    def key_down(self, key: str, priority: int = 0) -> bool:
         if self._impl:
-            return self._impl.key_down(key, priority)
-        return False
+            self._impl.key_press(key, action, duration)
     
-    def key_up(self, key: str, priority: int = 0) -> bool:
+    def key_down(self, key: str) -> None:
         if self._impl:
-            return self._impl.key_up(key, priority)
-        return False
+            self._impl.key_down(key)
     
-    def press_key(self, key: str, delay: float = 0, priority: int = 0) -> bool:
+    def key_up(self, key: str) -> None:
         if self._impl:
-            return self._impl.press_key(key, delay, priority)
-        return False
-    
-    def mouse_move(self, position: tuple, relative: bool = False, smooth: bool = False) -> None:
-        """鼠标移动（兼容旧接口）"""
-        if self._impl:
-            if relative:
-                self._impl.mouse_move_relative(position[0], position[1])
-            else:
-                self._impl.mouse_move(position[0], position[1])
+            self._impl.key_up(key)
     
     def mouse_click(self, button: str = "left", position: tuple = None,
                    action: str = "press", duration: int = 0) -> None:
-        """鼠标点击（兼容旧接口）"""
         if self._impl:
-            if position:
-                self._impl.mouse_move(position[0], position[1])
-            
-            if action == "press":
-                self._impl.mouse_down(button)
-                if duration > 0:
-                    time.sleep(duration / 1000.0)
-                self._impl.mouse_up(button)
-            elif action == "down":
-                self._impl.mouse_down(button)
-            elif action == "up":
-                self._impl.mouse_up(button)
+            self._impl.mouse_click(button, position, action, duration)
     
     def mouse_down(self, button: str = "left") -> None:
         if self._impl:
@@ -292,15 +282,15 @@ class InputController:
         if self._impl:
             self._impl.mouse_up(button)
     
-    def mouse_scroll(self, amount: int, position: tuple = None) -> None:
-        """鼠标滚轮（兼容旧接口）"""
+    def mouse_move(self, position: tuple, relative: bool = False, smooth: bool = False) -> None:
         if self._impl:
-            if position:
-                self._impl.mouse_move(position[0], position[1])
-            self._impl.mouse_scroll(amount)
+            self._impl.mouse_move(position, relative)
+    
+    def mouse_scroll(self, amount: int, position: tuple = None) -> None:
+        if self._impl:
+            self._impl.mouse_scroll(amount, position)
     
     def get_position(self) -> tuple:
-        """获取当前鼠标位置"""
         try:
             import pyautogui
             return pyautogui.position()
@@ -309,14 +299,4 @@ class InputController:
 
 
 def create_input_controller(app=None, method: str = None) -> InputController:
-    """
-    创建输入控制器的工厂函数
-    
-    Args:
-        app: 应用实例
-        method: 输入方式，可选 'pyautogui' 或 'dd'
-    
-    Returns:
-        InputController实例
-    """
     return InputController(app=app, method=method)

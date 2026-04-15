@@ -3,7 +3,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-VERSION = "V1.1.6"
+VERSION = "V1.1.7"
 
 import customtkinter as ctk
 from bt_gui.app import BehaviorTreeApp
@@ -79,10 +79,22 @@ def initialize_ocr():
         return False
 
 
+def initialize_input():
+    """初始化输入控制器（预加载DD虚拟键盘）"""
+    try:
+        from bt_utils.input_controller_factory import InputController
+        # 预加载输入控制器，会自动加载DD虚拟键盘（如果启用）
+        InputController()
+        return True
+    except Exception:
+        return False
+
+
 def main():
     ensure_workspace_exists()
     
     initialize_ocr()
+    initialize_input()  # 预加载输入控制器
     
     register_all_nodes()
     

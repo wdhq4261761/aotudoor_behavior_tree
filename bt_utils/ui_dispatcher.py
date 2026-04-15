@@ -158,7 +158,7 @@ class UIUpdateDispatcher:
         self._node_status_cache.clear()
     
     def start_polling(self):
-        if self._polling_active:
+        if self._polling_active and self._widget is not None:
             return
         
         self._polling_active = True
@@ -171,18 +171,35 @@ class UIUpdateDispatcher:
         if not self._polling_active:
             return
         
-        if self._widget is None:
-            return
+        widget = self._widget
         
         try:
-            pending = self._task_queue.qsize()
-            if pending > 0:
-                self._process_updates()
-        except Exception:
-            pass
+            if widget is not None:
+                pending = self._task_queue.qsize()
+                if pending > 0:
+                    self._process_updates()
+        except Exception as e:
+            print(f"[DEBUG] UI轮询处理异常: {e}")
         
         if self._polling_active:
-            self._widget.after(self._polling_interval_ms, self._poll)
+            if self._widget is not None:
+                try:
+                    self._widget.after(self._polling_interval_ms, self._poll)
+                except Exception as e:
+                    print(f"[DEBUG] UI轮询调度异常: {e}")
+            else:
+                import threading
+                threading.Timer(self._polling_interval_ms / 1000, self._poll_daemon).start()
+    
+    def _poll_daemon(self):
+        """后台线程轮询，用于在 _widget 为 None 时继续尝试"""
+        if self._polling_active and self._widget is not None:
+            try:
+                self._widget.after(0, self._poll)
+            except Exception:
+                pass
+        elif self._polling_active:
+            threading.Timer(self._polling_interval_ms / 1000, self._poll_daemon).start()
 
 
 def get_dispatcher() -> UIUpdateDispatcher:

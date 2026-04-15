@@ -6,7 +6,7 @@ import os
 import sys
 import ctypes
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 from .base_input import BaseInputController
 
@@ -109,6 +109,28 @@ VK_CODE_MAP = {
 }
 
 
+def _show_message_box(title: str, message: str, msg_type: str = "info"):
+    """显示消息框"""
+    try:
+        import ctypes
+        if msg_type == "error":
+            ctypes.windll.user32.MessageBoxW(0, message, title, 0x10)
+        elif msg_type == "warning":
+            ctypes.windll.user32.MessageBoxW(0, message, title, 0x30)
+        else:
+            ctypes.windll.user32.MessageBoxW(0, message, title, 0x40)
+    except Exception:
+        pass
+
+
+def _safe_print(message: str):
+    """安全打印，处理编码问题"""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        pass
+
+
 class DDVirtualInput(BaseInputController):
     """DD虚拟键盘输入控制器"""
     
@@ -148,17 +170,13 @@ class DDVirtualInput(BaseInputController):
                     if result == 1:
                         self._available = True
                         self._dll_path = path
-                        self._log(f"✅ DD虚拟键盘加载成功: {path}")
                         return True
-                except Exception as e:
-                    self._log(f"⚠️ 加载DD DLL失败 ({path}): {str(e)}")
+                except Exception:
                     continue
         
-        self._log("❌ DD虚拟键盘加载失败，请确保DD64.dll存在")
         return False
     
-    @property
-    def method_name(self) -> str:
+    def get_name(self) -> str:
         return "DD虚拟键盘"
     
     @property
@@ -171,11 +189,7 @@ class DDVirtualInput(BaseInputController):
     
     def _log(self, message: str):
         """日志输出"""
-        if self.app:
-            if hasattr(self.app, 'logging_manager'):
-                self.app.logging_manager.log_message(message)
-            else:
-                print(message)
+        pass
     
     def _get_dd_code(self, key: str) -> int:
         """
@@ -193,7 +207,6 @@ class DDVirtualInput(BaseInputController):
             if len(key_lower) == 1 and key_lower.isalpha():
                 vk_code = ord(key_lower.upper())
             else:
-                self._log(f"⚠️ VK_CODE_MAP中未找到按键: {key} (lower={key_lower})")
                 return 0
         
         if self._available and self._dd_dll:
@@ -201,136 +214,118 @@ class DDVirtualInput(BaseInputController):
                 dd_code = self._dd_dll.DD_todc(vk_code)
                 if dd_code > 0:
                     self._vk_cache[key_lower] = dd_code
-                    self._log(f"DD_todc 转换: {key} (VK=0x{vk_code:02X}) -> DD={dd_code}")
                     return dd_code
-                else:
-                    self._log(f"⚠️ DD_todc 返回无效值：{key} (VK=0x{vk_code:02X}) -> DD={dd_code}")
-            except Exception as e:
-                self._log(f"DD_todc转换失败: {str(e)}")
-        
-        self._log(f"⚠️ DD不可用，无法转换按键: {key}")
+            except Exception:
+                pass
         
         return 0
     
-    def key_down(self, key: str, priority: int = 0) -> bool:
+    def key_press(self, key: str, action: str = "press", duration: int = 0) -> None:
+        """按键操作"""
+        if action == "press":
+            self.key_down(key)
+            if duration > 0:
+                time.sleep(duration / 1000.0)
+            self.key_up(key)
+        elif action == "down":
+            self.key_down(key)
+        elif action == "up":
+            self.key_up(key)
+    
+    def key_down(self, key: str) -> None:
+        """按下按键"""
         if not self._available or not self._dd_dll:
-            self._log("❌ DD虚拟键盘不可用")
-            return False
+            return
         
         dd_code = self._get_dd_code(key)
         if dd_code == 0:
-            self._log(f"⚠️ 未知按键: {key}")
-            return False
+            return
         
         try:
             self._dd_dll.DD_key(dd_code, 1)
-            self._log(f"执行: DD按下 {key} (code={dd_code})")
-            return True
-        except Exception as e:
-            self._log(f"❌ DD按键按下错误: {str(e)}")
-            return False
+        except Exception:
+            pass
     
-    def key_up(self, key: str, priority: int = 0) -> bool:
+    def key_up(self, key: str) -> None:
+        """释放按键"""
         if not self._available or not self._dd_dll:
-            self._log("❌ DD虚拟键盘不可用")
-            return False
+            return
         
         dd_code = self._get_dd_code(key)
         if dd_code == 0:
-            self._log(f"⚠️ 未知按键: {key}")
-            return False
+            return
         
         try:
             self._dd_dll.DD_key(dd_code, 2)
-            self._log(f"执行: DD抬起 {key} (code={dd_code})")
-            return True
-        except Exception as e:
-            self._log(f"❌ DD按键抬起错误: {str(e)}")
-            return False
+        except Exception:
+            pass
     
-    def press_key(self, key: str, delay: float = 0, priority: int = 0) -> bool:
-        if not self.key_down(key, priority):
-            return False
-        
-        if delay > 0:
-            time.sleep(delay)
-        
-        return self.key_up(key, priority)
-    
-    def mouse_move(self, x: int, y: int) -> bool:
+    def mouse_click(self, button: str = "left", position: Tuple[int, int] = None,
+                   action: str = "press", duration: int = 0) -> None:
+        """鼠标点击"""
         if not self._available or not self._dd_dll:
-            self._log("❌ DD虚拟键盘不可用")
-            return False
+            return
         
-        try:
-            self._dd_dll.DD_mov(x, y)
-            self._log(f"执行: DD移动鼠标到 ({x}, {y})")
-            return True
-        except Exception as e:
-            self._log(f"❌ DD鼠标移动错误: {str(e)}")
-            return False
+        if position:
+            self.mouse_move(position, relative=False)
+        
+        if action == "press":
+            self.mouse_down(button)
+            if duration > 0:
+                time.sleep(duration / 1000.0)
+            self.mouse_up(button)
+        elif action == "down":
+            self.mouse_down(button)
+        elif action == "up":
+            self.mouse_up(button)
     
-    def mouse_move_relative(self, dx: int, dy: int) -> bool:
+    def mouse_down(self, button: str = "left") -> None:
+        """按下鼠标"""
         if not self._available or not self._dd_dll:
-            self._log("❌ DD虚拟键盘不可用")
-            return False
+            return
         
-        try:
-            self._dd_dll.DD_movR(dx, dy)
-            self._log(f"执行: DD相对移动鼠标 ({dx}, {dy})")
-            return True
-        except Exception as e:
-            self._log(f"❌ DD鼠标相对移动错误: {str(e)}")
-            return False
-    
-    def mouse_click(self, button: str = 'left') -> bool:
-        if not self.mouse_down(button):
-            return False
-        return self.mouse_up(button)
-    
-    def mouse_down(self, button: str = 'left') -> bool:
-        if not self._available or not self._dd_dll:
-            self._log("❌ DD虚拟键盘不可用")
-            return False
-        
-        # 直接使用DD码，因为DD_todc不支持鼠标按键
         btn_map = {'left': 1, 'right': 4, 'middle': 16}
         btn_code = btn_map.get(button, 1)
         
         try:
             self._dd_dll.DD_btn(btn_code)
-            self._log(f"执行: DD按下鼠标{button}键 (DD={btn_code})")
-            return True
-        except Exception as e:
-            self._log(f"❌ DD鼠标按下错误: {str(e)}")
-            return False
+        except Exception:
+            pass
     
-    def mouse_up(self, button: str = 'left') -> bool:
+    def mouse_up(self, button: str = "left") -> None:
+        """释放鼠标"""
         if not self._available or not self._dd_dll:
-            self._log("❌ DD虚拟键盘不可用")
-            return False
+            return
         
-        # 直接使用DD码，因为DD_todc不支持鼠标按键
         btn_map = {'left': 2, 'right': 8, 'middle': 32}
         btn_code = btn_map.get(button, 2)
         
         try:
             self._dd_dll.DD_btn(btn_code)
-            self._log(f"执行: DD抬起鼠标{button}键 (DD={btn_code})")
-            return True
-        except Exception as e:
-            self._log(f"❌ DD鼠标抬起错误: {str(e)}")
-            return False
+        except Exception:
+            pass
     
-    def mouse_scroll(self, clicks: int) -> bool:
+    def mouse_move(self, position: Tuple[int, int], relative: bool = False) -> None:
+        """移动鼠标"""
         if not self._available or not self._dd_dll:
-            self._log("❌ DD虚拟键盘不可用")
-            return False
+            return
         
         try:
-            self._dd_dll.DD_whl(clicks)
-            self._log(f"执行: DD鼠标滚轮 {clicks}")
-            return True
-        except Exception as e:
-            self._log(f"❌ DD鼠标滚轮错误: {str(e)}")
-            return False
+            if relative:
+                self._dd_dll.DD_movR(position[0], position[1])
+            else:
+                self._dd_dll.DD_mov(position[0], position[1])
+        except Exception:
+            pass
+    
+    def mouse_scroll(self, amount: int, position: Tuple[int, int] = None) -> None:
+        """鼠标滚轮"""
+        if not self._available or not self._dd_dll:
+            return
+        
+        try:
+            if position:
+                self._dd_dll.DD_mov(position[0], position[1])
+            self._dd_dll.DD_whl(amount)
+        except Exception:
+            pass
