@@ -83,9 +83,11 @@ a = Analysis(
         
         'bt_utils',
         'bt_utils.alarm',
+        'bt_utils.base_input',
         'bt_utils.dd_input',
         'bt_utils.image_processor',
         'bt_utils.input_controller',
+        'bt_utils.input_controller_factory',
         'bt_utils.ocr_manager',
         'bt_utils.recorder',
         'bt_utils.screenshot',

@@ -92,7 +92,7 @@ class ExecutionContext:
             duration: 按住时长（毫秒）
         """
         if self._input_controller is None:
-            from bt_utils.input_controller import InputController
+            from bt_utils.input_controller_factory import InputController
             self._input_controller = InputController()
 
         self._input_controller.key_press(key, action, duration)
@@ -108,7 +108,7 @@ class ExecutionContext:
             duration: 按住时长（毫秒）
         """
         if self._input_controller is None:
-            from bt_utils.input_controller import InputController
+            from bt_utils.input_controller_factory import InputController
             self._input_controller = InputController()
 
         self._input_controller.mouse_click(button, position, action, duration)
@@ -122,7 +122,7 @@ class ExecutionContext:
             smooth: 是否平滑移动
         """
         if self._input_controller is None:
-            from bt_utils.input_controller import InputController
+            from bt_utils.input_controller_factory import InputController
             self._input_controller = InputController()
 
         self._input_controller.mouse_move(position, relative, smooth=smooth)
@@ -134,7 +134,7 @@ class ExecutionContext:
             当前鼠标位置 (x, y)，如果无法获取则返回 None
         """
         if self._input_controller is None:
-            from bt_utils.input_controller import InputController
+            from bt_utils.input_controller_factory import InputController
             self._input_controller = InputController()
 
         return self._input_controller.get_position()
@@ -147,7 +147,7 @@ class ExecutionContext:
             position: 滚动位置 (x, y)
         """
         if self._input_controller is None:
-            from bt_utils.input_controller import InputController
+            from bt_utils.input_controller_factory import InputController
             self._input_controller = InputController()
 
         self._input_controller.mouse_scroll(amount, position)

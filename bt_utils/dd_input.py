@@ -3,6 +3,7 @@ DD虚拟键盘输入控制器实现
 DD版专用方案
 """
 import os
+import sys
 import ctypes
 import time
 from typing import Optional
@@ -128,6 +129,9 @@ class DDVirtualInput(BaseInputController):
             possible_paths.append(self._dll_path)
         
         base_path = os.path.dirname(os.path.abspath(__file__))
+        
+        if getattr(sys, 'frozen', False):
+            base_path = sys._MEIPASS
         
         possible_paths.extend([
             os.path.join(base_path, "DD64.dll"),
