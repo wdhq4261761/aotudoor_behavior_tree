@@ -133,6 +133,9 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             on_nodes_move=self._on_nodes_move,
             on_connection_add=self._on_connection_add,
             on_node_deselect=self._on_node_deselect,
+            on_context_copy=self._copy_selected,
+            on_context_paste=self._paste_selected,
+            can_context_paste=self._can_paste_selected,
             property_panel=None
         )
         self.canvas.pack(fill="both", expand=True)
@@ -451,8 +454,12 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         elif self.canvas.selected_node:
             self._clipboard_data = self.canvas._copy_selected_nodes_to_clipboard()
     
+    def _can_paste_selected(self) -> bool:
+        """判断当前是否存在可以粘贴的节点数据。"""
+        return bool(self._clipboard_data and self._clipboard_data.get('nodes'))
+    
     def _paste_selected(self):
-        if not self._clipboard_data:
+        if not self._can_paste_selected():
             return
         
         from copy import deepcopy
@@ -460,12 +467,16 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         clipboard_data = self._clipboard_data
         nodes_data = clipboard_data.get('nodes', [])
         relative_positions = clipboard_data.get('relative_positions', {})
+        source_origin = clipboard_data.get('source_origin')
         connections = clipboard_data.get('connections', [])
         
         if not nodes_data:
             return
         
-        paste_offset_x, paste_offset_y = self._calculate_paste_offset(relative_positions)
+        paste_offset_x, paste_offset_y = self._calculate_paste_offset(
+            relative_positions,
+            source_origin
+        )
         
         if len(nodes_data) == 1:
             node_data = nodes_data[0]
@@ -544,18 +555,20 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self._set_modified(True)
             self._update_toolbar()
     
-    def _calculate_paste_offset(self, relative_positions: Dict[str, tuple] = None) -> tuple:
-        canvas_width = self.canvas.canvas.winfo_width() or 800
-        canvas_height = self.canvas.canvas.winfo_height() or 600
-        
-        screen_center_x = canvas_width / 2
-        screen_center_y = canvas_height / 2
-        
-        canvas_center_x = (screen_center_x - self.canvas.pan_x) / self.canvas.zoom
-        canvas_center_y = (screen_center_y - self.canvas.pan_y) / self.canvas.zoom
-        
-        offset_x = canvas_center_x
-        offset_y = canvas_center_y
+    def _calculate_paste_offset(self, relative_positions: Dict[str, tuple] = None,
+                                source_origin: tuple = None) -> tuple:
+        # 优先从复制源附近开始粘贴，兼容旧剪贴板数据时再回退到画布中心。
+        if source_origin:
+            offset_x, offset_y = source_origin
+        else:
+            canvas_width = self.canvas.canvas.winfo_width() or 800
+            canvas_height = self.canvas.canvas.winfo_height() or 600
+            
+            screen_center_x = canvas_width / 2
+            screen_center_y = canvas_height / 2
+            
+            offset_x = (screen_center_x - self.canvas.pan_x) / self.canvas.zoom
+            offset_y = (screen_center_y - self.canvas.pan_y) / self.canvas.zoom
         
         if not relative_positions:
             return offset_x, offset_y
@@ -573,6 +586,10 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         node_height = 70
         offset_increment = 80
         max_attempts = 50
+        
+        # 先偏移一次，避免新节点直接覆盖复制源节点。
+        offset_x += offset_increment
+        offset_y += offset_increment
         
         for attempt in range(max_attempts):
             has_overlap = False

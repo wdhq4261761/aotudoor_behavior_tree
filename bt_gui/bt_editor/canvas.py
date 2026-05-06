@@ -15,6 +15,9 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                  on_nodes_move: Optional[Callable] = None,
                  on_connection_add: Optional[Callable] = None,
                  on_node_deselect: Optional[Callable] = None,
+                 on_context_copy: Optional[Callable] = None,
+                 on_context_paste: Optional[Callable] = None,
+                 can_context_paste: Optional[Callable[[], bool]] = None,
                  property_panel: Optional[Any] = None,
                  **kwargs):
         super().__init__(master, **kwargs)
@@ -35,6 +38,9 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         self.on_nodes_move = on_nodes_move
         self.on_connection_add = on_connection_add
         self.on_node_deselect = on_node_deselect
+        self.on_context_copy = on_context_copy
+        self.on_context_paste = on_context_paste
+        self.can_context_paste = can_context_paste
         
         self.zoom = 1.0
         self.pan_x = 0
@@ -475,10 +481,10 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
             menu.add_command(label=f"删除 {len(self.selected_nodes)} 个节点", 
                            command=lambda: self._delete_selected_nodes())
             menu.add_command(label=f"复制 {len(self.selected_nodes)} 个节点", 
-                           command=self._copy_selected_nodes_to_clipboard)
+                           command=self._copy_nodes_from_context_menu)
         elif self.selected_node:
             menu.add_command(label="删除节点", command=lambda: self.remove_node(self.selected_node))
-            menu.add_command(label="复制节点", command=lambda: self._copy_node(self.selected_node))
+            menu.add_command(label="复制节点", command=self._copy_nodes_from_context_menu)
         elif self.selected_connections:
             if len(self.selected_connections) > 1:
                 menu.add_command(label=f"删除 {len(self.selected_connections)} 条连线", 
@@ -488,8 +494,31 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         elif self.selected_connection:
             menu.add_command(label="删除连线", command=self.remove_selected_connection)
         
+        if self._can_paste_from_context_menu():
+            if menu.index("end") is not None:
+                menu.add_separator()
+            menu.add_command(label="粘贴节点", command=self._paste_nodes_from_context_menu)
+        
         if menu.index("end") is not None:
             menu.post(event.x_root, event.y_root)
+    
+    def _copy_nodes_from_context_menu(self):
+        """通过编辑器统一处理右键复制，保证剪贴板状态一致。"""
+        if self.on_context_copy:
+            self.on_context_copy()
+        else:
+            self._copy_selected_nodes_to_clipboard()
+    
+    def _paste_nodes_from_context_menu(self):
+        """通过编辑器统一处理右键粘贴，复用撤销和位置计算逻辑。"""
+        if self.on_context_paste:
+            self.on_context_paste()
+    
+    def _can_paste_from_context_menu(self) -> bool:
+        """只有编辑器里存在可用节点剪贴板时才显示粘贴菜单。"""
+        if not self.can_context_paste:
+            return False
+        return bool(self.can_context_paste())
     
     def _on_double_click(self, event):
         x = (self.canvas.canvasx(event.x) - self.pan_x) / self.zoom
@@ -1281,7 +1310,8 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
         return {
             'nodes': nodes_data,
             'connections': connections,
-            'relative_positions': relative_positions
+            'relative_positions': relative_positions,
+            'source_origin': (min_x, min_y)
         }
     
     def paste_nodes(self, clipboard_data: Dict[str, Any], offset_x: float = 50, offset_y: float = 50) -> List[str]:
