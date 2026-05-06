@@ -445,14 +445,24 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         """删除多个节点（兼容旧接口）"""
         self._delete_nodes_with_check(node_ids)
     
+    def has_clipboard_nodes(self) -> bool:
+        # 右键菜单用这个方法判断是否显示“粘贴节点”，避免无复制内容时出现无效菜单项。
+        return bool(self._clipboard_data and self._clipboard_data.get('nodes'))
+
     def _copy_selected(self):
+        # 复制时只在拿到有效节点数据后刷新剪贴板，避免空选择把已有复制内容冲掉。
+        copied_data = None
         if self.canvas.selected_nodes:
-            self._clipboard_data = self.canvas._copy_selected_nodes_to_clipboard()
+            copied_data = self.canvas._copy_selected_nodes_to_clipboard()
         elif self.canvas.selected_node:
-            self._clipboard_data = self.canvas._copy_selected_nodes_to_clipboard()
+            copied_data = self.canvas._copy_selected_nodes_to_clipboard()
+
+        if copied_data and copied_data.get('nodes'):
+            self._clipboard_data = copied_data
     
-    def _paste_selected(self):
-        if not self._clipboard_data:
+    def _paste_selected(self, paste_position: Optional[tuple] = None):
+        # 粘贴统一使用编辑器剪贴板；右键粘贴可传入鼠标位置，快捷键粘贴仍使用视口中心。
+        if not self.has_clipboard_nodes():
             return
         
         from copy import deepcopy
@@ -462,10 +472,8 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         relative_positions = clipboard_data.get('relative_positions', {})
         connections = clipboard_data.get('connections', [])
         
-        if not nodes_data:
-            return
-        
-        paste_offset_x, paste_offset_y = self._calculate_paste_offset(relative_positions)
+        # 根据入口选择粘贴基准点，并继续沿用原有的防重叠偏移逻辑。
+        paste_offset_x, paste_offset_y = self._calculate_paste_offset(relative_positions, paste_position)
         
         if len(nodes_data) == 1:
             node_data = nodes_data[0]
@@ -544,22 +552,25 @@ class BehaviorTreeEditor(ctk.CTkFrame):
             self._set_modified(True)
             self._update_toolbar()
     
-    def _calculate_paste_offset(self, relative_positions: Dict[str, tuple] = None) -> tuple:
-        canvas_width = self.canvas.canvas.winfo_width() or 800
-        canvas_height = self.canvas.canvas.winfo_height() or 600
-        
-        screen_center_x = canvas_width / 2
-        screen_center_y = canvas_height / 2
-        
-        canvas_center_x = (screen_center_x - self.canvas.pan_x) / self.canvas.zoom
-        canvas_center_y = (screen_center_y - self.canvas.pan_y) / self.canvas.zoom
-        
-        offset_x = canvas_center_x
-        offset_y = canvas_center_y
+    def _calculate_paste_offset(self, relative_positions: Dict[str, tuple] = None,
+                                paste_position: Optional[tuple] = None) -> tuple:
+        # 右键粘贴优先使用鼠标所在画布坐标；快捷键粘贴没有坐标时继续使用视口中心。
+        if paste_position:
+            offset_x, offset_y = paste_position
+        else:
+            canvas_width = self.canvas.canvas.winfo_width() or 800
+            canvas_height = self.canvas.canvas.winfo_height() or 600
+            
+            screen_center_x = canvas_width / 2
+            screen_center_y = canvas_height / 2
+            
+            offset_x = (screen_center_x - self.canvas.pan_x) / self.canvas.zoom
+            offset_y = (screen_center_y - self.canvas.pan_y) / self.canvas.zoom
         
         if not relative_positions:
             return offset_x, offset_y
         
+        # 计算复制节点组的包围盒，用整组范围检测重叠而不是只看第一个节点。
         paste_width = 0
         paste_height = 0
         for rel_x, rel_y in relative_positions.values():
@@ -577,6 +588,7 @@ class BehaviorTreeEditor(ctk.CTkFrame):
         for attempt in range(max_attempts):
             has_overlap = False
             
+            # 每次尝试都用当前偏移量生成待粘贴区域，发现重叠后整体向右下角挪开。
             paste_left = offset_x
             paste_top = offset_y
             paste_right = offset_x + paste_width

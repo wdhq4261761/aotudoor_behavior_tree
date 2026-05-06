@@ -467,18 +467,24 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
             self._show_context_menu(event)
     
     def _show_context_menu(self, event):
+        # 右键菜单先同步点击目标，避免右键点到未选中节点时仍操作旧选择。
+        self._sync_context_menu_selection(event)
+
         menu = tk.Menu(self, tearoff=0, bg=self._dark_colors['bg_secondary'], 
                        fg=self._dark_colors['text_primary'],
                        activebackground=self._dark_colors['bg_tertiary'])
+        editor = self._get_behavior_tree_editor()
+        paste_position = self._event_to_canvas_position(event)
         
         if self.selected_nodes:
             menu.add_command(label=f"删除 {len(self.selected_nodes)} 个节点", 
                            command=lambda: self._delete_selected_nodes())
             menu.add_command(label=f"复制 {len(self.selected_nodes)} 个节点", 
-                           command=self._copy_selected_nodes_to_clipboard)
+                           command=lambda: self._copy_selection_from_context_menu(editor))
         elif self.selected_node:
             menu.add_command(label="删除节点", command=lambda: self.remove_node(self.selected_node))
-            menu.add_command(label="复制节点", command=lambda: self._copy_node(self.selected_node))
+            menu.add_command(label="复制节点", 
+                           command=lambda: self._copy_selection_from_context_menu(editor))
         elif self.selected_connections:
             if len(self.selected_connections) > 1:
                 menu.add_command(label=f"删除 {len(self.selected_connections)} 条连线", 
@@ -487,9 +493,58 @@ class BehaviorTreeCanvas(ctk.CTkFrame):
                 menu.add_command(label="删除连线", command=self.remove_selected_connection)
         elif self.selected_connection:
             menu.add_command(label="删除连线", command=self.remove_selected_connection)
+
+        # 只有编辑器剪贴板里确实有复制节点时，才在右键菜单中显示粘贴入口。
+        if editor and editor.has_clipboard_nodes():
+            if menu.index("end") is not None:
+                menu.add_separator()
+            menu.add_command(
+                label="粘贴节点",
+                command=lambda pos=paste_position: editor._paste_selected(pos)
+            )
         
         if menu.index("end") is not None:
             menu.post(event.x_root, event.y_root)
+
+    def _get_behavior_tree_editor(self):
+        # 画布本身不保存编辑器剪贴板，这里回到编辑器实例以复用快捷键复制/粘贴逻辑。
+        editor = getattr(self.app, 'behavior_tree', None)
+        if editor and getattr(editor, 'canvas', None) is self:
+            return editor
+        return None
+
+    def _event_to_canvas_position(self, event) -> tuple:
+        # 将右键屏幕坐标转换为画布逻辑坐标，粘贴时节点会出现在鼠标附近。
+        x = (self.canvas.canvasx(event.x) - self.pan_x) / self.zoom
+        y = (self.canvas.canvasy(event.y) - self.pan_y) / self.zoom
+        return x, y
+
+    def _sync_context_menu_selection(self, event) -> None:
+        # 右键命中节点时选中该节点；命中已选多选组时保留多选，便于批量复制。
+        x, y = self._event_to_canvas_position(event)
+
+        for node_id, node in self.nodes.items():
+            if node.contains_point(x, y):
+                if node_id not in self.selected_nodes:
+                    self._select_node(node_id)
+                return
+
+        clicked_connection = self._find_connection_at(x, y)
+        if clicked_connection:
+            if clicked_connection not in self.selected_connections:
+                self._select_connection(clicked_connection)
+            return
+
+        # 右键空白处用于粘贴时清空当前选择，菜单只保留可用的粘贴动作。
+        self._deselect_all()
+
+    def _copy_selection_from_context_menu(self, editor) -> None:
+        # 右键复制必须写入编辑器剪贴板，否则后续粘贴拿不到节点数据。
+        if editor and hasattr(editor, '_copy_selected'):
+            editor._copy_selected()
+            return
+
+        self._copy_selected_nodes_to_clipboard()
     
     def _on_double_click(self, event):
         x = (self.canvas.canvasx(event.x) - self.pan_x) / self.zoom
